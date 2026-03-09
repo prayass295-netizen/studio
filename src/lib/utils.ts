@@ -4,3 +4,44 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export function generateReferralCode(): string {
+  return Math.random().toString().substring(2, 8);
+}
+
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function calculateDuration(startTime: string, endTime?: string): string {
+  const start = new Date(startTime);
+  const end = endTime ? new Date(endTime) : new Date();
+  
+  let diff = Math.abs(end.getTime() - start.getTime()) / 1000;
+
+  const hours = Math.floor(diff / 3600);
+  diff %= 3600;
+  const minutes = Math.floor(diff / 60);
+  const seconds = Math.floor(diff % 60);
+
+  const hStr = hours > 0 ? `${hours}h ` : '';
+  const mStr = minutes > 0 ? `${minutes}m ` : '';
+  const sStr = `${seconds}s`;
+
+  if (!hStr && !mStr && !sStr) return "0s";
+  return `${hStr}${mStr}${sStr}`.trim();
+}
+
+export function formatTime(date: Date | string): string {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+export function formatDate(date: Date | string): string {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
