@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Partner, AttendanceRecord } from '@/lib/types';
 import { 
-  calculateLatePenalty, 
-  calculateOvertimeIncentive,
+  calculateLateMinutes, 
+  calculateOvertimeMinutes,
   getAttendanceStatus
 } from '@/lib/calculations';
-import { formatCurrency, formatDate, formatTime } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { exportToCsv } from '@/lib/csv';
 import { Download, FileText } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
@@ -74,8 +74,8 @@ export default function AdminReportsPage() {
         const firstCheckInRecord = dailyRecords.reduce((earliest, current) => new Date(current.checkIn) < new Date(earliest.checkIn) ? current : earliest);
         const lastCheckOutRecord = dailyRecords.filter(r => r.checkOut).reduce((latest, current) => (!latest || !current.checkOut || new Date(current.checkOut) > new Date(latest.checkOut!)) ? current : latest, null as AttendanceRecord | null);
 
-        const { lateMinutes } = calculateLatePenalty(dailyRecords, partner.shiftStartTime || '09:00');
-        const { overtimeMinutes } = calculateOvertimeIncentive(dailyRecords, partner.shiftEndTime || '17:00');
+        const { lateMinutes } = calculateLateMinutes(dailyRecords, partner.shiftStartTime || '09:00');
+        const { overtimeMinutes } = calculateOvertimeMinutes(dailyRecords, partner.shiftEndTime || '17:00');
         const status = getAttendanceStatus(dailyRecords, partner.shiftStartTime);
 
         return {
@@ -88,7 +88,7 @@ export default function AdminReportsPage() {
           assignedStartTime: partner.shiftStartTime || 'N/A',
           actualCheckIn: formatTime(firstCheckInRecord.checkIn),
           lateMinutes: lateMinutes,
-          lateCount: lateMinutes > 10 ? 1 : 0,
+          lateCount: lateMinutes > 0 ? 1 : 0,
           assignedEndTime: partner.shiftEndTime || 'N/A',
           actualCheckOut: lastCheckOutRecord?.checkOut ? formatTime(lastCheckOutRecord.checkOut) : 'N/A',
           extraMinutes: overtimeMinutes,
@@ -187,7 +187,7 @@ export default function AdminReportsPage() {
     <div className="container mx-auto p-4 md:p-8">
       <Card>
         <CardHeader className="bg-yellow-100/50">
-          <CardTitle className="flex items-center gap-2"><FileText/>Payroll Reports</CardTitle>
+          <CardTitle className="flex items-center gap-2"><FileText/>Attendance Reports</CardTitle>
           <CardDescription className="mt-2 text-black/80 font-medium">
               {renderHeaderDateInfo()}
           </CardDescription>

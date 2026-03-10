@@ -6,27 +6,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { AttendanceRecord, Partner } from '@/lib/types';
-import { calculateLatePenalty, calculateOvertimeIncentive, calculateTotalActiveTime } from '@/lib/calculations';
-import { formatCurrency, calculateDuration, formatDate } from '@/lib/utils';
+import { calculateLateMinutes, calculateOvertimeMinutes, calculateTotalActiveTime } from '@/lib/calculations';
+import { calculateDuration, formatDate } from '@/lib/utils';
 import { FileText, Loader } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
+import { addDays, format, startOfMonth, endOfMonth } from 'date-fns';
 
 type ReportRow = {
   date: string;
   totalTime: string;
-  baseSalary: string;
-  deductions: string;
-  incentives: string;
-  netPayable: string;
+  lateTime: number;
+  extraTime: number;
 };
 
 export default function PartnerReportsPage() {
   const { currentUser, getPartnerAttendance } = useAuth();
-  const [filter, setFilter] = useState('daily');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date(),
+  const [filter, setFilter] = useState('monthly');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date();
+    return { from: startOfMonth(today), to: endOfMonth(today) };
   });
 
   const partner = useMemo(() => currentUser as Partner | null, [currentUser]);
@@ -51,19 +49,14 @@ export default function PartnerReportsPage() {
       if (dateRange?.from && dateRange?.to) {
         if (recordDate >= dateRange.from && recordDate <= dateRange.to) {
           const totalMs = calculateTotalActiveTime(dailyRecords);
-          const { penalty } = calculateLatePenalty(dailyRecords, partner.shiftStartTime || '09:00');
-          const { incentive } = calculateOvertimeIncentive(dailyRecords, partner.shiftEndTime || '17:00');
-          
-          const dailySalary = (partner.baseSalary ?? 0) / 30;
-          const netPayable = dailySalary - penalty + incentive;
+          const { lateMinutes } = calculateLateMinutes(dailyRecords, partner.shiftStartTime || '09:00');
+          const { overtimeMinutes } = calculateOvertimeMinutes(dailyRecords, partner.shiftEndTime || '17:00');
 
           data.push({
             date: formatDate(recordDate),
             totalTime: calculateDuration(new Date(0).toISOString(), new Date(totalMs).toISOString()),
-            baseSalary: formatCurrency(dailySalary),
-            deductions: formatCurrency(penalty),
-            incentives: formatCurrency(incentive),
-            netPayable: formatCurrency(netPayable),
+            lateTime: lateMinutes,
+            extraTime: overtimeMinutes,
           });
         }
       }
@@ -71,10 +64,12 @@ export default function PartnerReportsPage() {
     return data.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [partner, getPartnerAttendance, dateRange]);
 
-  const totalPayable = useMemo(() => {
-    return reportData.reduce((sum, row) => {
-      return sum + parseFloat(row.netPayable.replace(/[^0-9.-]+/g,""));
-    }, 0);
+  const summary = useMemo(() => {
+    return reportData.reduce((acc, row) => {
+      acc.totalLateTime += row.lateTime;
+      acc.totalExtraTime += row.extraTime;
+      return acc;
+    }, { totalLateTime: 0, totalExtraTime: 0 });
   }, [reportData]);
   
   if (!currentUser || !partner) {
@@ -99,7 +94,7 @@ export default function PartnerReportsPage() {
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <CardTitle className="flex items-center gap-2"><FileText/>My Payroll Report</CardTitle>
+                <CardTitle className="flex items-center gap-2"><FileText/>My Attendance Report</CardTitle>
               </div>
               <div className="flex items-center gap-2">
                 <Select value={filter} onValueChange={handleFilterChange}>
@@ -121,10 +116,8 @@ export default function PartnerReportsPage() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Total Time</TableHead>
-                <TableHead>Base Pay</TableHead>
-                <TableHead>Deductions</TableHead>
-                <TableHead>Incentives</TableHead>
-                <TableHead className="text-right">Net Payable</TableHead>
+                <TableHead>Late Time</TableHead>
+                <TableHead className="text-right">Extra Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -133,26 +126,27 @@ export default function PartnerReportsPage() {
                   <TableRow key={index}>
                     <TableCell>{row.date}</TableCell>
                     <TableCell>{row.totalTime}</TableCell>
-                    <TableCell>{row.baseSalary}</TableCell>
-                    <TableCell className="text-red-600">{row.deductions}</TableCell>
-                    <TableCell className="text-green-600">{row.incentives}</TableCell>
-                    <TableCell className="text-right font-medium">{row.netPayable}</TableCell>
+                    <TableCell className="text-red-600">{row.lateTime > 0 ? `${row.lateTime} min` : '-'}</TableCell>
+                    <TableCell className="text-right text-green-600">{row.extraTime > 0 ? `${row.extraTime} min`: '-'}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-24 text-center">
                     No attendance data for the selected period.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
-            <TableFooter>
-                <TableRow>
-                    <TableCell colSpan={5} className="text-right font-bold text-lg">Total Payable</TableCell>
-                    <TableCell className="text-right font-bold text-lg">{formatCurrency(totalPayable)}</TableCell>
-                </TableRow>
-            </TableFooter>
+            {reportData.length > 0 && (
+                <TableFooter>
+                    <TableRow>
+                        <TableCell colSpan={2} className="text-right font-bold">Totals</TableCell>
+                        <TableCell className="font-bold text-red-600">{summary.totalLateTime} min</TableCell>
+                        <TableCell className="text-right font-bold text-green-600">{summary.totalExtraTime} min</TableCell>
+                    </TableRow>
+                </TableFooter>
+            )}
           </Table>
         </CardContent>
       </Card>

@@ -1,44 +1,45 @@
 import type { AttendanceRecord } from "./types";
 
 const LATE_THRESHOLD_MINUTES = 10;
-const LATE_PENALTY_PER_MINUTE = 2; // in INR
-const OVERTIME_INCENTIVE_PER_MINUTE = 1; // in INR
 
-/**
- * Calculates late penalty based on the first check-in of the day.
- */
-export function calculateLatePenalty(dailyAttendance: AttendanceRecord[], shiftStartTimeString: string): { penalty: number; lateMinutes: number } {
-  if (dailyAttendance.length === 0 || !shiftStartTimeString) {
-    return { penalty: 0, lateMinutes: 0 };
-  }
+function getTotalLateMinutes(dailyAttendance: AttendanceRecord[], shiftStartTimeString: string): number {
+    if (dailyAttendance.length === 0 || !shiftStartTimeString) {
+        return 0;
+    }
 
-  // Find the earliest check-in for the day
-  const firstCheckIn = dailyAttendance.reduce((earliest, current) => {
-    return new Date(current.checkIn) < new Date(earliest.checkIn) ? current : earliest;
-  });
+    const firstCheckIn = dailyAttendance.reduce((earliest, current) => {
+        return new Date(current.checkIn) < new Date(earliest.checkIn) ? current : earliest;
+    });
 
-  const checkInTime = new Date(firstCheckIn.checkIn);
-  const shiftStartTime = new Date(checkInTime);
-  const [hours, minutes] = shiftStartTimeString.split(':').map(Number);
-  shiftStartTime.setHours(hours, minutes, 0, 0);
+    const checkInTime = new Date(firstCheckIn.checkIn);
+    const shiftStartTime = new Date(checkInTime);
+    const [hours, minutes] = shiftStartTimeString.split(':').map(Number);
+    shiftStartTime.setHours(hours, minutes, 0, 0);
 
-  const lateMilliseconds = checkInTime.getTime() - shiftStartTime.getTime();
-  const lateMinutes = Math.floor(lateMilliseconds / 60000);
-
-  if (lateMinutes > LATE_THRESHOLD_MINUTES) {
-    const penalty = (lateMinutes - LATE_THRESHOLD_MINUTES) * LATE_PENALTY_PER_MINUTE;
-    return { penalty, lateMinutes };
-  }
-
-  return { penalty: 0, lateMinutes: 0 };
+    const lateMilliseconds = checkInTime.getTime() - shiftStartTime.getTime();
+    return Math.max(0, Math.floor(lateMilliseconds / 60000));
 }
 
 /**
- * Calculates overtime incentive based on the last check-out of the day.
+ * Calculates late minutes based on the first check-in of the day.
+ * Returns total minutes late if it's over the threshold, otherwise 0.
  */
-export function calculateOvertimeIncentive(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { incentive: number; overtimeMinutes: number } {
+export function calculateLateMinutes(dailyAttendance: AttendanceRecord[], shiftStartTimeString: string): { lateMinutes: number } {
+  const totalLateMinutes = getTotalLateMinutes(dailyAttendance, shiftStartTimeString);
+
+  if (totalLateMinutes > LATE_THRESHOLD_MINUTES) {
+    return { lateMinutes: totalLateMinutes };
+  }
+
+  return { lateMinutes: 0 };
+}
+
+/**
+ * Calculates overtime minutes based on the last check-out of the day.
+ */
+export function calculateOvertimeMinutes(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { overtimeMinutes: number } {
   if (dailyAttendance.length === 0 || !shiftEndTimeString) {
-    return { incentive: 0, overtimeMinutes: 0 };
+    return { overtimeMinutes: 0 };
   }
   
   // Find the latest check-out for the day
@@ -52,7 +53,7 @@ export function calculateOvertimeIncentive(dailyAttendance: AttendanceRecord[], 
 
 
   if (!lastCheckOut || !lastCheckOut.checkOut) {
-    return { incentive: 0, overtimeMinutes: 0 };
+    return { overtimeMinutes: 0 };
   }
 
   const checkOutTime = new Date(lastCheckOut.checkOut);
@@ -64,11 +65,10 @@ export function calculateOvertimeIncentive(dailyAttendance: AttendanceRecord[], 
   const overtimeMinutes = Math.floor(overtimeMilliseconds / 60000);
 
   if (overtimeMinutes > 0) {
-    const incentive = overtimeMinutes * OVERTIME_INCENTIVE_PER_MINUTE;
-    return { incentive, overtimeMinutes };
+    return { overtimeMinutes };
   }
 
-  return { incentive: 0, overtimeMinutes: 0 };
+  return { overtimeMinutes: 0 };
 }
 
 
@@ -89,11 +89,11 @@ export function calculateTotalActiveTime(attendanceRecords: AttendanceRecord[]):
 export function getAttendanceStatus(dailyAttendance: AttendanceRecord[], shiftStartTimeString?: string): 'green' | 'yellow' | 'red' | 'gray' {
     if (dailyAttendance.length === 0 || !shiftStartTimeString) return 'gray';
     
-    const { lateMinutes } = calculateLatePenalty(dailyAttendance, shiftStartTimeString);
+    const totalLateMinutes = getTotalLateMinutes(dailyAttendance, shiftStartTimeString);
 
-    if (lateMinutes <= LATE_THRESHOLD_MINUTES) return 'green';
-    if (lateMinutes > 10 && lateMinutes <= 20) return 'yellow';
-    if (lateMinutes > 20) return 'red';
+    if (totalLateMinutes <= LATE_THRESHOLD_MINUTES) return 'green';
+    if (totalLateMinutes > 10 && totalLateMinutes <= 20) return 'yellow';
+    if (totalLateMinutes > 20) return 'red';
 
     return 'gray';
 }
@@ -111,28 +111,24 @@ export function calculateTotalActiveTimeForLiveReport(attendanceRecords: Attenda
 }
 
 /**
- * Calculates overtime incentive for a live report, considering the current time if a session is ongoing.
+ * Calculates overtime minutes for a live report, considering the current time if a session is ongoing.
  */
-export function calculateLiveOvertimeIncentive(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { incentive: number; overtimeMinutes: number } {
+export function calculateLiveOvertimeMinutes(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { overtimeMinutes: number } {
     if (dailyAttendance.length === 0 || !shiftEndTimeString) {
-        return { incentive: 0, overtimeMinutes: 0 };
+        return { overtimeMinutes: 0 };
     }
 
-    // Find the latest record to see if user is currently checked in
     const sortedRecords = [...dailyAttendance].sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
     const lastRecord = sortedRecords[sortedRecords.length - 1];
 
-    // The effective "end of work" time is the last checkout, or now if still clocked in.
     let effectiveEndTime: Date;
 
     if (lastRecord && !lastRecord.checkOut) {
-        // Still checked in, use current time
         effectiveEndTime = new Date();
     } else {
-        // Find the latest checkout time among all records for the day
         const latestCheckOutTime = Math.max(...dailyAttendance.filter(r => r.checkOut).map(r => new Date(r.checkOut!).getTime()));
         if (latestCheckOutTime === -Infinity) {
-            return { incentive: 0, overtimeMinutes: 0 }; // No completed checkouts today
+            return { overtimeMinutes: 0 };
         }
         effectiveEndTime = new Date(latestCheckOutTime);
     }
@@ -145,9 +141,8 @@ export function calculateLiveOvertimeIncentive(dailyAttendance: AttendanceRecord
     const overtimeMinutes = Math.floor(overtimeMilliseconds / 60000);
 
     if (overtimeMinutes > 0) {
-        const incentive = overtimeMinutes * OVERTIME_INCENTIVE_PER_MINUTE;
-        return { incentive, overtimeMinutes };
+        return { overtimeMinutes };
     }
 
-    return { incentive: 0, overtimeMinutes: 0 };
+    return { overtimeMinutes: 0 };
 }

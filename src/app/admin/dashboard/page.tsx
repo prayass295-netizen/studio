@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Partner } from '@/lib/types';
-import { formatCurrency, formatTime } from '@/lib/utils';
+import { formatTime } from '@/lib/utils';
 import { Users, UserPlus, Edit, Eye, User as UserIcon } from 'lucide-react';
-import { getAttendanceStatus, calculateLatePenalty, calculateOvertimeIncentive } from '@/lib/calculations';
+import { getAttendanceStatus, calculateLateMinutes, calculateOvertimeMinutes } from '@/lib/calculations';
 import { StatusIndicator } from '@/components/status-indicator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -23,9 +23,8 @@ type LivePartnerData = {
   status: 'In' | 'Out';
   checkInTime: string;
   punctuality: 'green' | 'yellow' | 'red' | 'gray';
-  deductions: number;
-  incentives: number;
-  netPay: number;
+  lateMinutes: number;
+  extraMinutes: number;
 };
 
 export default function AdminDashboard() {
@@ -57,11 +56,8 @@ export default function AdminDashboard() {
             
             const punctuality = getAttendanceStatus(todaysAttendance, partner.shiftStartTime);
 
-            const { penalty } = calculateLatePenalty(todaysAttendance, partner.shiftStartTime || '09:00');
-            const { incentive } = calculateOvertimeIncentive(todaysAttendance, partner.shiftEndTime || '17:00');
-
-            const dailySalary = (partner.baseSalary ?? 0) / 30;
-            const netPay = (todaysAttendance.length === 0) ? 0 : dailySalary - penalty + incentive;
+            const { lateMinutes } = calculateLateMinutes(todaysAttendance, partner.shiftStartTime || '09:00');
+            const { overtimeMinutes } = calculateOvertimeMinutes(todaysAttendance, partner.shiftEndTime || '17:00');
             
             return {
                 id: partner.id,
@@ -69,9 +65,8 @@ export default function AdminDashboard() {
                 status,
                 checkInTime,
                 punctuality,
-                deductions: penalty,
-                incentives: incentive,
-                netPay: netPay,
+                lateMinutes,
+                extraMinutes: overtimeMinutes,
             };
         });
         setLiveData(data);
@@ -305,9 +300,8 @@ export default function AdminDashboard() {
                 <TableHead>Status</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Punctuality</TableHead>
-                <TableHead>Deductions</TableHead>
-                <TableHead>Incentives</TableHead>
-                <TableHead className="text-right">Today's Net Pay</TableHead>
+                <TableHead>Late Time</TableHead>
+                <TableHead>Extra Time</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -324,14 +318,13 @@ export default function AdminDashboard() {
                     <TableCell>
                       <StatusIndicator status={partner.punctuality} />
                     </TableCell>
-                    <TableCell className="text-red-600">{formatCurrency(partner.deductions)}</TableCell>
-                    <TableCell className="text-green-600">{formatCurrency(partner.incentives)}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(partner.netPay)}</TableCell>
+                    <TableCell className="text-red-600">{partner.lateMinutes > 0 ? `${partner.lateMinutes} min` : '-'}</TableCell>
+                    <TableCell className="text-green-600">{partner.extraMinutes > 0 ? `${partner.extraMinutes} min` : '-'}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     No approved partners to monitor.
                   </TableCell>
                 </TableRow>

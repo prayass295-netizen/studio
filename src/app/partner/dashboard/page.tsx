@@ -10,11 +10,11 @@ import type { AttendanceRecord, Partner } from '@/lib/types';
 import { 
   getAttendanceStatus, 
   calculateTotalActiveTimeForLiveReport,
-  calculateLatePenalty,
-  calculateLiveOvertimeIncentive
+  calculateLateMinutes,
+  calculateLiveOvertimeMinutes
 } from '@/lib/calculations';
-import { formatTime, formatDate, calculateDuration, formatCurrency } from '@/lib/utils';
-import { Clock, Sun, Moon, CalendarDays, Timer, TrendingDown, TrendingUp, CircleDollarSign, Loader } from 'lucide-react';
+import { formatTime, formatDate, calculateDuration } from '@/lib/utils';
+import { Clock, Sun, Moon, CalendarDays, Timer, TrendingDown, TrendingUp, Loader } from 'lucide-react';
 
 export default function PartnerDashboard() {
   const { currentUser, getTodaysAttendance, addAttendanceRecord, updateAttendanceRecord, getPartnerAttendance } = useAuth();
@@ -22,9 +22,8 @@ export default function PartnerDashboard() {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [liveMetrics, setLiveMetrics] = useState({
     totalTime: 0,
-    fine: 0,
-    incentive: 0,
-    netPay: 0,
+    lateMinutes: 0,
+    extraMinutes: 0,
   });
 
   useEffect(() => {
@@ -43,13 +42,10 @@ export default function PartnerDashboard() {
      const calculateMetrics = () => {
       const currentRecords = getTodaysAttendance(currentUser.id);
       const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
-      const { penalty } = calculateLatePenalty(currentRecords, partner.shiftStartTime || '09:00');
-      const { incentive } = calculateLiveOvertimeIncentive(currentRecords, partner.shiftEndTime || '17:00');
-      const dailySalary = (partner.baseSalary ?? 0) / 30;
+      const { lateMinutes } = calculateLateMinutes(currentRecords, partner.shiftStartTime || '09:00');
+      const { overtimeMinutes } = calculateLiveOvertimeMinutes(currentRecords, partner.shiftEndTime || '17:00');
       
-      const netPay = currentRecords.length > 0 ? dailySalary - penalty + incentive : 0;
-      
-      setLiveMetrics({ totalTime, fine: penalty, incentive, netPay });
+      setLiveMetrics({ totalTime, lateMinutes, extraMinutes: overtimeMinutes });
     };
 
     calculateMetrics();
@@ -176,16 +172,12 @@ export default function PartnerDashboard() {
                 </div>
                 <hr className="my-2" />
                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingDown className="h-4 w-4 text-red-600"/>Current Deduction</span>
-                    <span className="font-semibold text-red-600">{formatCurrency(liveMetrics.fine)}</span>
+                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingDown className="h-4 w-4 text-red-600"/>Late Time</span>
+                    <span className="font-semibold text-red-600">{liveMetrics.lateMinutes > 0 ? `${liveMetrics.lateMinutes} min` : '-'}</span>
                 </div>
                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-green-600"/>Current Incentive</span>
-                    <span className="font-semibold text-green-600">{formatCurrency(liveMetrics.incentive)}</span>
-                </div>
-                <div className="flex justify-between items-center text-lg mt-2">
-                    <span className="font-semibold flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-primary"/>Live Net Earning</span>
-                    <span className="font-bold text-primary">{formatCurrency(liveMetrics.netPay)}</span>
+                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-green-600"/>Extra Time</span>
+                    <span className="font-semibold text-green-600">{liveMetrics.extraMinutes > 0 ? `${liveMetrics.extraMinutes} min` : '-'}</span>
                 </div>
             </CardContent>
           </Card>
