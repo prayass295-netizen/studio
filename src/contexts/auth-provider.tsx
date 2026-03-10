@@ -218,17 +218,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return updatedUser;
     };
       
-    setUsers(prevUsers => (prevUsers ?? []).map(u => u.id === userId ? processUpdate(u) : u));
+    setUsers(prevUsers => (prevUsers ?? []).map(u => (u.id === userId ? processUpdate(u) : u)));
 
-    if (currentUser?.id === userId) {
-        setCurrentUser(prev => prev ? processUpdate(prev) : null);
-    }
+    setCurrentUser(prevCurrentUser => {
+        if (prevCurrentUser?.id === userId) {
+            return prevCurrentUser ? processUpdate(prevCurrentUser) : null;
+        }
+        return prevCurrentUser;
+    });
     
     // Only show toast for explicit profile saves, not automated wallet resets
     if (data.phoneNumber || data.photoUrl !== undefined) {
       toast({ title: 'Profile Saved', description: 'Your details are now saved on this device.' });
     }
-  }, [setUsers, currentUser, setCurrentUser, toast]);
+  }, [setUsers, setCurrentUser, toast]);
 
   const getAdminForPartner = useCallback((partner: Partner): Admin | null => {
       if (!partner || !users) return null;
@@ -288,19 +291,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }));
 
     // Update currentUser if the approved task belongs to them
-    if (currentUser?.id === task.partnerId) {
-        setCurrentUser(prev => {
-            if (prev && prev.role === 'partner') {
-                 const partner = prev as Partner;
-                 const newBalance = (partner.walletBalance ?? 0) + task.incentive;
-                 return { ...partner, walletBalance: newBalance };
-            }
-            return prev;
-        });
-    }
+    setCurrentUser(prev => {
+        if (prev?.id === task.partnerId && prev.role === 'partner') {
+             const partner = prev as Partner;
+             const newBalance = (partner.walletBalance ?? 0) + task.incentive;
+             return { ...partner, walletBalance: newBalance };
+        }
+        return prev;
+    });
 
     toast({ title: 'Task Approved!', description: `Incentive of ${task.incentive} added to partner's wallet.`});
-  }, [tasks, updateTask, setUsers, currentUser, setCurrentUser, toast]);
+  }, [tasks, updateTask, setUsers, setCurrentUser, toast]);
 
   const getTasksForPartner = useCallback((partnerId: string) => {
     return (tasks ?? []).filter(t => t.partnerId === partnerId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -368,5 +369,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-    
