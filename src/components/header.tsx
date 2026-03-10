@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PrayasLogo } from '@/components/icons';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export function Header() {
   const { currentUser, logout, adminReferralCode } = useAuth();
@@ -17,10 +18,12 @@ export function Header() {
       ? [
           { href: '/admin/dashboard', label: 'Dashboard' },
           { href: '/admin/reports', label: 'Reports' },
+          { href: '/admin/profile', label: 'Profile' },
         ]
       : [
           { href: '/partner/dashboard', label: 'Dashboard' },
           { href: '/partner/reports', label: 'My Report' },
+          { href: '/partner/profile', label: 'Profile' },
         ];
 
   return (
@@ -39,7 +42,7 @@ export function Header() {
               href={link.href}
               className={cn(
                 'transition-colors hover:text-primary',
-                pathname === link.href ? 'text-primary font-semibold' : 'text-muted-foreground'
+                pathname.startsWith(link.href) ? 'text-primary font-semibold' : 'text-muted-foreground'
               )}
             >
               {link.label}
@@ -53,9 +56,17 @@ export function Header() {
               <span className="text-sm font-bold tracking-wider text-primary">{adminReferralCode}</span>
             </div>
           )}
-          <span className="text-sm text-muted-foreground hidden sm:inline">
-            Welcome, <span className="font-semibold text-foreground">{currentUser?.username}</span>
-          </span>
+          <div className="flex items-center gap-3">
+             <Avatar className="h-8 w-8 hidden sm:flex">
+                <AvatarImage src={currentUser?.photoUrl ?? undefined} />
+                <AvatarFallback>
+                    <User className="h-4 w-4" />
+                </AvatarFallback>
+            </Avatar>
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+                Welcome, <span className="font-semibold text-foreground">{currentUser?.username}</span>
+            </span>
+          </div>
           <Button variant="ghost" size="icon" onClick={logout}>
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Logout</span>

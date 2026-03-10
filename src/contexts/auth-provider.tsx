@@ -22,6 +22,9 @@ interface AuthContextType {
   updateAttendanceRecord: (recordId: string) => AttendanceRecord | null;
   getTodaysAttendance: (userId: string) => AttendanceRecord[];
   adminReferralCode: string | null;
+  updateUserProfile: (userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => void;
+  getAdminForPartner: (partner: Partner) => Admin | null;
+  getPartnerCountForAdmin: (admin: Admin) => number;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -164,6 +167,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [attendance]);
 
+  const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => {
+    setUsers(prevUsers => 
+      prevUsers.map(user => {
+        if (user.id === userId) {
+          const updatedUser = { ...user, ...data };
+           if (data.photoUrl === null) {
+            // Can't use delete, it messes with reactivity. Set to undefined.
+            updatedUser.photoUrl = undefined;
+          }
+          if (currentUser?.id === userId) {
+            setCurrentUser(updatedUser);
+          }
+          return updatedUser;
+        }
+        return user;
+      })
+    );
+    toast({ title: 'Profile Updated', description: 'Your changes have been saved.' });
+  }, [setUsers, currentUser, setCurrentUser, toast]);
+
+  const getAdminForPartner = useCallback((partner: Partner): Admin | null => {
+      return users.find(u => u.role === 'admin' && (u as Admin).referralCode === partner.adminReferralCode) as Admin | null;
+  }, [users]);
+  
+  const getPartnerCountForAdmin = useCallback((admin: Admin): number => {
+      return users.filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
+  }, [users]);
+
+
   const value = {
     currentUser,
     login,
@@ -179,6 +211,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateAttendanceRecord,
     getTodaysAttendance,
     adminReferralCode: settings.referralCode,
+    updateUserProfile,
+    getAdminForPartner,
+    getPartnerCountForAdmin,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
