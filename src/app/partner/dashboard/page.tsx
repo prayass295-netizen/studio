@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusIndicator } from '@/components/status-indicator';
-import type { AttendanceRecord } from '@/lib/types';
+import type { AttendanceRecord, Partner } from '@/lib/types';
 import { calculateTotalActiveTime, getAttendanceStatus } from '@/lib/calculations';
 import { formatTime, formatDate, calculateDuration } from '@/lib/utils';
 import { Clock, Sun, Moon, CalendarDays, Timer } from 'lucide-react';
@@ -17,6 +17,8 @@ export default function PartnerDashboard() {
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [totalTime, setTotalTime] = useState(0);
 
+  const partner = currentUser as Partner;
+
   useEffect(() => {
     if (currentUser) {
       const today = getTodaysAttendance(currentUser.id);
@@ -26,17 +28,21 @@ export default function PartnerDashboard() {
   }, [currentUser, getTodaysAttendance, getPartnerAttendance]);
 
   useEffect(() => {
-    setTotalTime(calculateTotalActiveTime(todaysRecords));
-    const interval = setInterval(() => {
-      setTotalTime(calculateTotalActiveTime(todaysRecords));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [todaysRecords]);
+     if (currentUser) {
+      const interval = setInterval(() => {
+        // Recalculate based on potentially new records if user checked in/out
+        setTotalTime(calculateTotalActiveTime(getTodaysAttendance(currentUser.id)));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, getTodaysAttendance]);
 
   const lastRecord = useMemo(() => {
-    if (todaysRecords.length === 0) return null;
-    return todaysRecords.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
-  }, [todaysRecords]);
+    // We need to get the latest records from state as it's more up-to-date
+    const currentDayRecords = getTodaysAttendance(currentUser!.id);
+    if (currentDayRecords.length === 0) return null;
+    return currentDayRecords.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
+  }, [todaysRecords, currentUser, getTodaysAttendance]);
 
   const canCheckIn = !lastRecord || !!lastRecord.checkOut;
   const canCheckOut = lastRecord && !lastRecord.checkOut;
@@ -44,18 +50,22 @@ export default function PartnerDashboard() {
   const handleCheckIn = () => {
     if (currentUser) {
       addAttendanceRecord(currentUser.id);
-      setTodaysRecords(getTodaysAttendance(currentUser.id)); // Refresh state
+      const updatedRecords = getTodaysAttendance(currentUser.id);
+      setTodaysRecords(updatedRecords); // Refresh state
+      setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
     }
   };
 
   const handleCheckOut = () => {
     if (currentUser && lastRecord) {
       updateAttendanceRecord(lastRecord.id);
-      setTodaysRecords(getTodaysAttendance(currentUser.id)); // Refresh state
+      const updatedRecords = getTodaysAttendance(currentUser.id);
+      setTodaysRecords(updatedRecords); // Refresh state
+      setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
     }
   };
 
-  const status = getAttendanceStatus(todaysRecords);
+  const status = getAttendanceStatus(todaysRecords, partner?.shiftStartTime);
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -113,6 +123,10 @@ export default function PartnerDashboard() {
                 <CardTitle className="flex items-center gap-2"><Timer />Today's Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Assigned Shift</span>
+                     <span className="font-semibold">{partner.shiftStartTime && partner.shiftEndTime ? `${partner.shiftStartTime} - ${partner.shiftEndTime}` : 'Not Set'}</span>
+                </div>
                 <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Punctuality</span>
                     <StatusIndicator status={status} showText />

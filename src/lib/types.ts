@@ -7,6 +7,8 @@ export interface User {
   role: UserRole;
   approved: boolean;
   baseSalary?: number;
+  shiftStartTime?: string; // HH:mm
+  shiftEndTime?: string; // HH:mm
   adminReferralCode?: string; // For partners
 }
 

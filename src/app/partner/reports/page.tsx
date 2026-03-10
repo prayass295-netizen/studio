@@ -51,8 +51,8 @@ export default function PartnerReportsPage() {
       if (dateRange?.from && dateRange?.to) {
         if (recordDate >= dateRange.from && recordDate <= dateRange.to) {
           const totalMs = calculateTotalActiveTime(dailyRecords);
-          const { penalty } = calculateLatePenalty(dailyRecords);
-          const { incentive } = calculateOvertimeIncentive(dailyRecords);
+          const { penalty } = calculateLatePenalty(dailyRecords, partner.shiftStartTime || '09:00');
+          const { incentive } = calculateOvertimeIncentive(dailyRecords, partner.shiftEndTime || '17:00');
           
           const dailySalary = (partner.baseSalary ?? 0) / 30;
           const netPayable = dailySalary - penalty + incentive;

@@ -15,7 +15,8 @@ interface AuthContextType {
   registerPartner: (username: string, password: string, referralCode: string) => Partner | null;
   getPartners: () => Partner[];
   getPendingPartners: () => Partner[];
-  approvePartner: (partnerId: string, baseSalary: number) => boolean;
+  approvePartner: (partnerId: string, baseSalary: number, shiftStartTime: string, shiftEndTime: string) => boolean;
+  updatePartnerDetails: (partnerId: string, details: { baseSalary?: number; shiftStartTime?: string; shiftEndTime?: string }) => boolean;
   getPartnerAttendance: (partnerId: string) => AttendanceRecord[];
   addAttendanceRecord: (userId: string) => AttendanceRecord | null;
   updateAttendanceRecord: (recordId: string) => AttendanceRecord | null;
@@ -99,13 +100,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getPartners = useCallback(() => users.filter(u => u.role === 'partner') as Partner[], [users]);
   const getPendingPartners = useCallback(() => users.filter(u => u.role === 'partner' && !u.approved) as Partner[], [users]);
 
-  const approvePartner = useCallback((partnerId: string, baseSalary: number) => {
+  const approvePartner = useCallback((partnerId: string, baseSalary: number, shiftStartTime: string, shiftEndTime: string) => {
     let success = false;
     setUsers(prevUsers => {
       const newUsers = prevUsers.map(u => {
         if (u.id === partnerId) {
           success = true;
-          return { ...u, approved: true, baseSalary };
+          return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime };
+        }
+        return u;
+      });
+      return newUsers;
+    });
+    return success;
+  }, [setUsers]);
+
+  const updatePartnerDetails = useCallback((partnerId: string, details: { baseSalary?: number; shiftStartTime?: string; shiftEndTime?: string }) => {
+    let success = false;
+    setUsers(prevUsers => {
+      const newUsers = prevUsers.map(u => {
+        if (u.id === partnerId) {
+          success = true;
+          return { ...u, ...details };
         }
         return u;
       });
@@ -157,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getPartners,
     getPendingPartners,
     approvePartner,
+    updatePartnerDetails,
     getPartnerAttendance,
     addAttendanceRecord,
     updateAttendanceRecord,

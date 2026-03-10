@@ -12,16 +12,19 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Partner } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
-import { Users, UserPlus } from 'lucide-react';
+import { Users, UserPlus, Edit } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { getPartners, getPendingPartners, approvePartner } = useAuth();
+  const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails } = useAuth();
   const { toast } = useToast();
   
-  // Local state to trigger re-renders
   const [partners, setPartners] = useState<Partner[]>(getPartners());
   const [pendingPartners, setPendingPartners] = useState<Partner[]>(getPendingPartners());
+  
   const [salary, setSalary] = useState('');
+  const [shiftStartTime, setShiftStartTime] = useState('09:00');
+  const [shiftEndTime, setShiftEndTime] = useState('17:00');
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
 
   const handleApprove = (partnerId: string) => {
     const baseSalary = parseFloat(salary);
@@ -29,18 +32,59 @@ export default function AdminDashboard() {
       toast({ variant: 'destructive', title: 'Invalid Salary', description: 'Please enter a valid positive number for the base salary.' });
       return;
     }
+     if (!shiftStartTime || !shiftEndTime) {
+      toast({ variant: 'destructive', title: 'Invalid Shift Times', description: 'Please set both check-in and check-out times.' });
+      return;
+    }
 
-    const success = approvePartner(partnerId, baseSalary);
+    const success = approvePartner(partnerId, baseSalary, shiftStartTime, shiftEndTime);
     if (success) {
       toast({ title: 'Partner Approved', description: 'The partner can now log in and use the system.' });
-      // Refresh local state from the source of truth
       setPartners(getPartners());
       setPendingPartners(getPendingPartners());
       setSalary('');
+      setShiftStartTime('09:00');
+      setShiftEndTime('17:00');
     } else {
       toast({ variant: 'destructive', title: 'Approval Failed', description: 'Something went wrong. Please try again.' });
     }
   };
+
+  const handleUpdateDetails = () => {
+    if (!editingPartner) return;
+
+    const baseSalary = parseFloat(salary);
+    if (isNaN(baseSalary) || baseSalary <= 0) {
+      toast({ variant: 'destructive', title: 'Invalid Salary', description: 'Please enter a valid positive number for the base salary.' });
+      return;
+    }
+    if (!shiftStartTime || !shiftEndTime) {
+      toast({ variant: 'destructive', title: 'Invalid Shift Times', description: 'Please set both check-in and check-out times.' });
+      return;
+    }
+
+    const success = updatePartnerDetails(editingPartner.id, { baseSalary, shiftStartTime, shiftEndTime });
+    if (success) {
+        toast({ title: 'Partner Updated', description: `${editingPartner.username}'s details have been updated.` });
+        setPartners(getPartners());
+        setEditingPartner(null); // Close dialog
+    } else {
+        toast({ variant: 'destructive', title: 'Update Failed', description: 'Something went wrong. Please try again.' });
+    }
+  };
+
+  const openEditDialog = (partner: Partner) => {
+      setEditingPartner(partner);
+      setSalary(partner.baseSalary?.toString() ?? '');
+      setShiftStartTime(partner.shiftStartTime ?? '09:00');
+      setShiftEndTime(partner.shiftEndTime ?? '17:00');
+  };
+
+  const resetApprovalState = () => {
+    setSalary('');
+    setShiftStartTime('09:00');
+    setShiftEndTime('17:00');
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -65,7 +109,7 @@ export default function AdminDashboard() {
                     <TableRow key={partner.id}>
                       <TableCell className="font-medium">{partner.username}</TableCell>
                       <TableCell className="text-right">
-                        <AlertDialog>
+                        <AlertDialog onOpenChange={(open) => !open && resetApprovalState()}>
                           <AlertDialogTrigger asChild>
                             <Button size="sm">Approve</Button>
                           </AlertDialogTrigger>
@@ -73,21 +117,45 @@ export default function AdminDashboard() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Approve {partner.username}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Set the base monthly salary for this partner. This can be changed later.
+                                Set the base monthly salary and shift timings for this partner.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <div className="py-4">
-                              <Label htmlFor="salary">Base Salary (per month)</Label>
-                              <Input
-                                id="salary"
-                                type="number"
-                                placeholder="e.g., 50000"
-                                value={salary}
-                                onChange={(e) => setSalary(e.target.value)}
-                              />
+                            <div className="space-y-4 py-4">
+                                <div>
+                                  <Label htmlFor="salary">Base Salary (per month)</Label>
+                                  <Input
+                                    id="salary"
+                                    type="number"
+                                    placeholder="e.g., 50000"
+                                    value={salary}
+                                    onChange={(e) => setSalary(e.target.value)}
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <Label htmlFor="check-in">Set Check-in Time</Label>
+                                        <Input
+                                            id="check-in"
+                                            type="time"
+                                            value={shiftStartTime}
+                                            onChange={(e) => setShiftStartTime(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label htmlFor="check-out">Set Check-out Time</Label>
+                                        <Input
+                                            id="check-out"
+                                            type="time"
+                                            value={shiftEndTime}
+                                            onChange={(e) => setShiftEndTime(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </div>
                             </div>
                             <AlertDialogFooter>
-                              <AlertDialogCancel onClick={() => setSalary('')}>Cancel</AlertDialogCancel>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction onClick={() => handleApprove(partner.id)}>
                                 Approve Partner
                               </AlertDialogAction>
@@ -108,7 +176,7 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Users />All Partners</CardTitle>
-            <CardDescription>View all registered partners.</CardDescription>
+            <CardDescription>View and manage all registered partners.</CardDescription>
           </CardHeader>
           <CardContent>
              {partners.filter(p => p.approved).length > 0 ? (
@@ -116,8 +184,9 @@ export default function AdminDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Username</TableHead>
-                    <TableHead>Base Salary</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Salary</TableHead>
+                    <TableHead>Shift</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -125,8 +194,11 @@ export default function AdminDashboard() {
                     <TableRow key={partner.id}>
                       <TableCell className="font-medium">{partner.username}</TableCell>
                       <TableCell>{formatCurrency(partner.baseSalary ?? 0)}</TableCell>
-                      <TableCell>
-                        <Badge variant="default">Approved</Badge>
+                      <TableCell>{partner.shiftStartTime ?? 'N/A'} - {partner.shiftEndTime ?? 'N/A'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(partner)}>
+                            <Edit className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -138,6 +210,57 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+       {editingPartner && (
+        <AlertDialog open={!!editingPartner} onOpenChange={(isOpen) => !isOpen && setEditingPartner(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Edit Details for {editingPartner.username}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Update the base salary and shift timings for this partner.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="edit-salary">Base Salary (per month)</Label>
+                        <Input
+                            id="edit-salary"
+                            type="number"
+                            placeholder="e.g., 50000"
+                            value={salary}
+                            onChange={(e) => setSalary(e.target.value)}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="edit-check-in">Check-in Time</Label>
+                            <Input
+                                id="edit-check-in"
+                                type="time"
+                                value={shiftStartTime}
+                                onChange={(e) => setShiftStartTime(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="edit-check-out">Check-out Time</Label>
+                            <Input
+                                id="edit-check-out"
+                                type="time"
+                                value={shiftEndTime}
+                                onChange={(e) => setShiftEndTime(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setEditingPartner(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleUpdateDetails}>
+                        Save Changes
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    )}
     </div>
   );
 }

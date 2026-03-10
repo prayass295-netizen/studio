@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DatePickerWithRange } from '@/components/date-range-picker'; // Assuming this component exists
 import type { Partner, AttendanceRecord } from '@/lib/types';
 import { calculateLatePenalty, calculateOvertimeIncentive, calculateTotalActiveTime } from '@/lib/calculations';
 import { formatCurrency, calculateDuration, formatDate } from '@/lib/utils';
@@ -55,8 +54,8 @@ export default function AdminReportsPage() {
         if (dateRange?.from && dateRange?.to) {
           if (recordDate >= dateRange.from && recordDate <= dateRange.to) {
             const totalMs = calculateTotalActiveTime(dailyRecords);
-            const { penalty } = calculateLatePenalty(dailyRecords);
-            const { incentive } = calculateOvertimeIncentive(dailyRecords);
+            const { penalty } = calculateLatePenalty(dailyRecords, partner.shiftStartTime || '09:00');
+            const { incentive } = calculateOvertimeIncentive(dailyRecords, partner.shiftEndTime || '17:00');
             
             // For simplicity, prorating monthly salary to daily
             const dailySalary = (partner.baseSalary ?? 0) / 30;
