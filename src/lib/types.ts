@@ -12,6 +12,7 @@ export interface User {
   adminReferralCode?: string; // For partners
   photoUrl?: string; // Data URL for the photo
   phoneNumber?: string;
+  destination?: string;
 }
 
 export interface Admin extends User {

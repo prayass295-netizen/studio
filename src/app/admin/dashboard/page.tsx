@@ -39,6 +39,7 @@ export default function AdminDashboard() {
   const [salary, setSalary] = useState('');
   const [shiftStartTime, setShiftStartTime] = useState('09:00');
   const [shiftEndTime, setShiftEndTime] = useState('17:00');
+  const [destination, setDestination] = useState('');
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [liveData, setLiveData] = useState<LivePartnerData[]>([]);
 
@@ -92,13 +93,15 @@ export default function AdminDashboard() {
       toast({ variant: 'destructive', title: 'Invalid Shift Times', description: 'Please set both check-in and check-out times.' });
       return;
     }
+    if (!destination) {
+      toast({ variant: 'destructive', title: 'Invalid Role', description: 'Please assign a role/destination.' });
+      return;
+    }
 
-    const success = approvePartner(partnerId, baseSalary, shiftStartTime, shiftEndTime);
+    const success = approvePartner(partnerId, baseSalary, shiftStartTime, shiftEndTime, destination);
     if (success) {
       toast({ title: 'Partner Approved', description: 'The partner can now log in and use the system.' });
-      setSalary('');
-      setShiftStartTime('09:00');
-      setShiftEndTime('17:00');
+      resetApprovalState();
     } else {
       toast({ variant: 'destructive', title: 'Approval Failed', description: 'Something went wrong. Please try again.' });
     }
@@ -116,8 +119,12 @@ export default function AdminDashboard() {
       toast({ variant: 'destructive', title: 'Invalid Shift Times', description: 'Please set both check-in and check-out times.' });
       return;
     }
+     if (!destination) {
+      toast({ variant: 'destructive', title: 'Invalid Role', description: 'Please assign a role/destination.' });
+      return;
+    }
 
-    const success = updatePartnerDetails(editingPartner.id, { baseSalary, shiftStartTime, shiftEndTime });
+    const success = updatePartnerDetails(editingPartner.id, { baseSalary, shiftStartTime, shiftEndTime, destination });
     if (success) {
         toast({ title: 'Partner Updated', description: `${editingPartner.username}'s details have been updated.` });
         setEditingPartner(null); // Close dialog
@@ -131,12 +138,14 @@ export default function AdminDashboard() {
       setSalary(partner.baseSalary?.toString() ?? '');
       setShiftStartTime(partner.shiftStartTime ?? '09:00');
       setShiftEndTime(partner.shiftEndTime ?? '17:00');
+      setDestination(partner.destination ?? '');
   };
 
   const resetApprovalState = () => {
     setSalary('');
     setShiftStartTime('09:00');
     setShiftEndTime('17:00');
+    setDestination('');
   }
 
   return (
@@ -170,10 +179,19 @@ export default function AdminDashboard() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Approve {partner.username}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Set the base monthly salary and shift timings for this partner.
+                                Set the salary, shift timings, and role for this partner.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <div className="space-y-4 py-4">
+                                <div>
+                                    <Label htmlFor="destination">Assign Role/Destination</Label>
+                                    <Input
+                                    id="destination"
+                                    placeholder="e.g., Manager, Staff"
+                                    value={destination}
+                                    onChange={(e) => setDestination(e.target.value)}
+                                    />
+                                </div>
                                 <div>
                                   <Label htmlFor="salary">Base Salary (per month)</Label>
                                   <Input
@@ -237,8 +255,8 @@ export default function AdminDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Partner</TableHead>
+                    <TableHead>Destination</TableHead>
                     <TableHead>Phone</TableHead>
-                    <TableHead>Salary</TableHead>
                     <TableHead>Shift</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -255,8 +273,8 @@ export default function AdminDashboard() {
                             <span>{partner.username}</span>
                         </div>
                       </TableCell>
+                      <TableCell>{partner.destination ?? 'N/A'}</TableCell>
                       <TableCell>{partner.phoneNumber ?? 'N/A'}</TableCell>
-                      <TableCell>{formatCurrency(partner.baseSalary ?? 0)}</TableCell>
                       <TableCell>{partner.shiftStartTime ?? 'N/A'} - {partner.shiftEndTime ?? 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" onClick={() => openEditDialog(partner)}>
@@ -329,10 +347,19 @@ export default function AdminDashboard() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Edit Details for {editingPartner.username}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Update the base salary and shift timings for this partner.
+                        Update the salary, shift timings, and role for this partner.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="edit-destination">Assign Role/Destination</Label>
+                        <Input
+                            id="edit-destination"
+                            placeholder="e.g., Manager, Staff"
+                            value={destination}
+                            onChange={(e) => setDestination(e.target.value)}
+                        />
+                    </div>
                     <div>
                         <Label htmlFor="edit-salary">Base Salary (per month)</Label>
                         <Input
