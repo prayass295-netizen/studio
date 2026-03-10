@@ -36,12 +36,18 @@ export default function AdminAuthPage() {
   const { toast } = useToast();
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   
-  const hasAdmin = hasAdminAccount;
-  const [activeTab, setActiveTab] = useState(hasAdmin ? 'login' : 'register');
+  const [activeTab, setActiveTab] = useState('login');
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setActiveTab(hasAdmin ? 'login' : 'register');
-  }, [hasAdmin]);
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      setActiveTab(hasAdminAccount ? 'login' : 'register');
+    }
+  }, [hasAdminAccount, isClient]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -86,8 +92,8 @@ export default function AdminAuthPage() {
           </Link>
         </div>
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="login" disabled={!hasAdmin}>Login</TabsTrigger>
-          <TabsTrigger value="register" disabled={hasAdmin}>Register</TabsTrigger>
+          <TabsTrigger value="login" disabled={!isClient || !hasAdminAccount}>Login</TabsTrigger>
+          <TabsTrigger value="register" disabled={!isClient || hasAdminAccount}>Register</TabsTrigger>
         </TabsList>
         <TabsContent value="login">
           <Card>

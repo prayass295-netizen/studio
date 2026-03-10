@@ -12,9 +12,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Partner } from '@/lib/types';
 import { formatCurrency, formatTime } from '@/lib/utils';
-import { Users, UserPlus, Edit, Eye } from 'lucide-react';
+import { Users, UserPlus, Edit, Eye, User as UserIcon } from 'lucide-react';
 import { getAttendanceStatus, calculateLatePenalty, calculateOvertimeIncentive } from '@/lib/calculations';
 import { StatusIndicator } from '@/components/status-indicator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 type LivePartnerData = {
   id: string;
@@ -238,7 +239,8 @@ export default function AdminDashboard() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Username</TableHead>
+                    <TableHead>Partner</TableHead>
+                    <TableHead>Phone</TableHead>
                     <TableHead>Salary</TableHead>
                     <TableHead>Shift</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -247,7 +249,16 @@ export default function AdminDashboard() {
                 <TableBody>
                   {partners.filter(p => p.approved).map(partner => (
                     <TableRow key={partner.id}>
-                      <TableCell className="font-medium">{partner.username}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                                <AvatarImage src={partner.photoUrl ?? undefined} alt={partner.username} />
+                                <AvatarFallback><UserIcon className="h-4 w-4" /></AvatarFallback>
+                            </Avatar>
+                            <span>{partner.username}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{partner.phoneNumber ?? 'N/A'}</TableCell>
                       <TableCell>{formatCurrency(partner.baseSalary ?? 0)}</TableCell>
                       <TableCell>{partner.shiftStartTime ?? 'N/A'} - {partner.shiftEndTime ?? 'N/A'}</TableCell>
                       <TableCell className="text-right">
