@@ -11,6 +11,7 @@ export interface User {
   shiftEndTime?: string; // HH:mm
   adminReferralCode?: string; // For partners
   photoUrl?: string; // Data URL for the photo
+  phoneNumber?: string;
 }
 
 export interface Admin extends User {
@@ -21,7 +22,6 @@ export interface Admin extends User {
 export interface Partner extends User {
   role: 'partner';
   adminReferralCode: string;
-  phoneNumber?: string;
 }
 
 export type AttendanceRecord = {

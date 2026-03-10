@@ -14,7 +14,7 @@ import {
   calculateLiveOvertimeIncentive
 } from '@/lib/calculations';
 import { formatTime, formatDate, calculateDuration, formatCurrency } from '@/lib/utils';
-import { Clock, Sun, Moon, CalendarDays, Timer, TrendingDown, TrendingUp, CircleDollarSign } from 'lucide-react';
+import { Clock, Sun, Moon, CalendarDays, Timer, TrendingDown, TrendingUp, CircleDollarSign, Loader } from 'lucide-react';
 
 export default function PartnerDashboard() {
   const { currentUser, getTodaysAttendance, addAttendanceRecord, updateAttendanceRecord, getPartnerAttendance } = useAuth();
@@ -27,19 +27,19 @@ export default function PartnerDashboard() {
     netPay: 0,
   });
 
-  if (!currentUser) {
-    return null;
-  }
-
-  const partner = currentUser as Partner;
-
   useEffect(() => {
-    const today = getTodaysAttendance(currentUser.id);
-    setTodaysRecords(today);
-    setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
+    if (currentUser) {
+      const today = getTodaysAttendance(currentUser.id);
+      setTodaysRecords(today);
+      setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
+    }
   }, [currentUser, getTodaysAttendance, getPartnerAttendance]);
 
+  const partner = useMemo(() => currentUser as Partner | null, [currentUser]);
+
   useEffect(() => {
+     if (!currentUser || !partner) return;
+
      const calculateMetrics = () => {
       const currentRecords = getTodaysAttendance(currentUser.id);
       const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
@@ -59,10 +59,19 @@ export default function PartnerDashboard() {
   }, [currentUser, getTodaysAttendance, partner]);
 
   const lastRecord = useMemo(() => {
+    if (!currentUser) return null;
     const currentDayRecords = getTodaysAttendance(currentUser.id);
     if (currentDayRecords.length === 0) return null;
     return currentDayRecords.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
   }, [todaysRecords, currentUser, getTodaysAttendance]);
+
+  if (!currentUser || !partner) {
+     return (
+       <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+     )
+  }
 
   const canCheckIn = !lastRecord || !!lastRecord.checkOut;
   const canCheckOut = lastRecord && !lastRecord.checkOut;

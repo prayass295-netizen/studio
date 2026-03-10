@@ -41,7 +41,7 @@ export default function AdminReportsPage() {
     to: new Date(),
   });
 
-  const allPartners = getPartners().filter(p => p.approved);
+  const allPartners = useMemo(() => getPartners().filter(p => p.approved), [getPartners]);
 
   const reportData = useMemo(() => {
     const data: ReportRow[] = [];
@@ -103,9 +103,8 @@ export default function AdminReportsPage() {
   
   const handleExportLiveStatus = () => {
     const liveReportData: any[] = [];
-    const approvedPartners = getPartners().filter(p => p.approved);
-
-    approvedPartners.forEach(partner => {
+    
+    allPartners.forEach(partner => {
         const todaysAttendance = getTodaysAttendance(partner.id);
         
         if (todaysAttendance.length > 0) {
@@ -227,5 +226,3 @@ export default function AdminReportsPage() {
     </div>
   );
 }
-// Note: DatePickerWithRange is a complex component. For this sample, we're assuming it exists
-// or would be built based on shadcn documentation. The core logic here is what matters.

@@ -11,6 +11,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
 
   useEffect(() => {
+    if (currentUser === undefined) return; // Wait for the hook to determine auth state
     if (currentUser === null) {
       router.push('/login/admin');
     } else if (currentUser.role !== 'admin') {
@@ -18,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [currentUser, router]);
 
-  if (!currentUser || currentUser.role !== 'admin') {
+  if (currentUser === undefined || !currentUser || currentUser.role !== 'admin') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader className="h-8 w-8 animate-spin text-primary" />

@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
+// A value of `undefined` means the value is still being loaded from localStorage.
+// This is to prevent hydration mismatches.
+export function useLocalStorage<T>(key: string, initialValue: T | undefined) {
+  const [storedValue, setStoredValue] = useState<T | undefined>(undefined);
 
   useEffect(() => {
     // This effect runs only on the client, after hydration
@@ -13,13 +15,14 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       value = item ? JSON.parse(item) : initialValue;
     } catch (error) {
       console.error(error);
-      value = initialValue;
+      value = initialValue as T;
     }
     setStoredValue(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   const setValue = useCallback(
-    (value: T | ((val: T) => T)) => {
+    (value: T | ((val: T | undefined) => T)) => {
       try {
         const valueToStore = value instanceof Function ? value(storedValue) : value;
         setStoredValue(valueToStore);

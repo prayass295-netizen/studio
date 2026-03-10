@@ -11,6 +11,7 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
 
   useEffect(() => {
+    if (currentUser === undefined) return; // Wait for the hook to determine auth state
     if (currentUser === null) {
       router.push('/login/partner');
     } else if (currentUser.role !== 'partner') {
@@ -18,7 +19,7 @@ export default function PartnerLayout({ children }: { children: React.ReactNode 
     }
   }, [currentUser, router]);
 
-  if (!currentUser || currentUser.role !== 'partner') {
+  if (currentUser === undefined || !currentUser || currentUser.role !== 'partner') {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader className="h-8 w-8 animate-spin text-primary" />

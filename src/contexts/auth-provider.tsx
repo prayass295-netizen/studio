@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, ReactNode, useCallback } from 'react';
+import { createContext, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { Admin, Partner, User, AttendanceRecord, AdminSettings } from '@/lib/types';
@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { generateReferralCode } from '@/lib/utils';
 
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: User | null | undefined; // undefined means loading
   login: (username: string, password: string) => User | null;
   logout: () => void;
   registerAdmin: (username: string, password: string) => Admin | null;
@@ -34,18 +34,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useLocalStorage<User[]>('prayas_users', []);
   const [attendance, setAttendance] = useLocalStorage<AttendanceRecord[]>('prayas_attendance', []);
   const [settings, setSettings] = useLocalStorage<AdminSettings>('prayas_settings', { referralCode: null });
-  const [currentUser, setCurrentUser] = useLocalStorage<User | null>('prayas_currentUser', null);
+  const [currentUser, setCurrentUser] = useLocalStorage<User | null | undefined>('prayas_currentUser', undefined);
   const router = useRouter();
   const { toast } = useToast();
 
-  const hasAdminAccount = users.some(u => u.role === 'admin');
+  const hasAdminAccount = useMemo(() => users?.some(u => u.role === 'admin') ?? false, [users]);
 
   const registerAdmin = useCallback((username: string, password: string): Admin | null => {
-    if (users.some(u => u.role === 'admin')) {
+    if (users?.some(u => u.role === 'admin')) {
       toast({ variant: 'destructive', title: 'Error', description: 'An admin already exists.' });
       return null;
     }
-    if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+    if (users?.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         toast({ variant: 'destructive', title: 'Error', description: 'Username is already taken.' });
         return null;
     }
@@ -58,17 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       approved: true,
       referralCode,
     };
-    setUsers(prev => [...prev, newAdmin]);
+    setUsers(prev => [...(prev ?? []), newAdmin]);
     setSettings({ referralCode });
     return newAdmin;
   }, [users, setUsers, setSettings, toast]);
   
   const registerPartner = useCallback((username: string, password: string, adminReferralCode: string): Partner | null => {
-    if (settings.referralCode !== adminReferralCode) {
+    if (settings?.referralCode !== adminReferralCode) {
       toast({ variant: 'destructive', title: 'Error', description: 'Invalid referral code.' });
       return null;
     }
-     if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+     if (users?.some(u => u.username.toLowerCase() === username.toLowerCase())) {
         toast({ variant: 'destructive', title: 'Error', description: 'Username is already taken.' });
         return null;
     }
@@ -80,12 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       approved: false,
       adminReferralCode
     };
-    setUsers(prev => [...prev, newPartner]);
+    setUsers(prev => [...(prev ?? []), newPartner]);
     return newPartner;
-  }, [users, setUsers, settings.referralCode, toast]);
+  }, [users, setUsers, settings, toast]);
 
   const login = useCallback((username: string, password: string): User | null => {
-    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
+    const user = users?.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
     if (user) {
       if (!user.approved) {
         toast({ title: 'Pending Approval', description: 'Your account is pending admin approval.' });
@@ -103,13 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/');
   }, [setCurrentUser, router]);
 
-  const getPartners = useCallback(() => users.filter(u => u.role === 'partner') as Partner[], [users]);
-  const getPendingPartners = useCallback(() => users.filter(u => u.role === 'partner' && !u.approved) as Partner[], [users]);
+  const getPartners = useCallback(() => (users ?? []).filter(u => u.role === 'partner') as Partner[], [users]);
+  const getPendingPartners = useCallback(() => (users ?? []).filter(u => u.role === 'partner' && !u.approved) as Partner[], [users]);
 
   const approvePartner = useCallback((partnerId: string, baseSalary: number, shiftStartTime: string, shiftEndTime: string) => {
     let success = false;
     setUsers(prevUsers => {
-      const newUsers = prevUsers.map(u => {
+      const newUsers = (prevUsers ?? []).map(u => {
         if (u.id === partnerId) {
           success = true;
           return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime };
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePartnerDetails = useCallback((partnerId: string, details: { baseSalary?: number; shiftStartTime?: string; shiftEndTime?: string }) => {
     let success = false;
     setUsers(prevUsers => {
-      const newUsers = prevUsers.map(u => {
+      const newUsers = (prevUsers ?? []).map(u => {
         if (u.id === partnerId) {
           success = true;
           return { ...u, ...details };
@@ -142,13 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       userId,
       checkIn: new Date().toISOString(),
     };
-    setAttendance(prev => [...prev, newRecord]);
+    setAttendance(prev => [...(prev ?? []), newRecord]);
     return newRecord;
   }, [setAttendance]);
   
   const updateAttendanceRecord = useCallback((recordId: string) => {
     let updatedRecord: AttendanceRecord | null = null;
-    setAttendance(prevAtt => prevAtt.map(rec => {
+    setAttendance(prevAtt => (prevAtt ?? []).map(rec => {
       if (rec.id === recordId) {
         updatedRecord = { ...rec, checkOut: new Date().toISOString() };
         return updatedRecord;
@@ -158,12 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return updatedRecord;
   }, [setAttendance]);
 
-  const getPartnerAttendance = useCallback((partnerId: string) => attendance.filter(a => a.userId === partnerId), [attendance]);
+  const getPartnerAttendance = useCallback((partnerId: string) => (attendance ?? []).filter(a => a.userId === partnerId), [attendance]);
 
   const getTodaysAttendance = useCallback((userId: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return attendance.filter(a => {
+    return (attendance ?? []).filter(a => {
+        if (!a.checkIn) return false;
         const checkInDate = new Date(a.checkIn);
         checkInDate.setHours(0,0,0,0);
         return a.userId === userId && checkInDate.getTime() === today.getTime();
@@ -172,11 +173,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => {
     setUsers(prevUsers => 
-      prevUsers.map(user => {
+      (prevUsers ?? []).map(user => {
         if (user.id === userId) {
           const updatedUser = { ...user, ...data };
            if (data.photoUrl === null) {
-            // Can't use delete, it messes with reactivity. Set to undefined.
             updatedUser.photoUrl = undefined;
           }
           if (currentUser?.id === userId) {
@@ -191,11 +191,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [setUsers, currentUser, setCurrentUser, toast]);
 
   const getAdminForPartner = useCallback((partner: Partner): Admin | null => {
-      return users.find(u => u.role === 'admin' && (u as Admin).referralCode === partner.adminReferralCode) as Admin | null;
+      if (!partner) return null;
+      return (users ?? []).find(u => u.role === 'admin' && (u as Admin).referralCode === partner.adminReferralCode) as Admin | null;
   }, [users]);
   
   const getPartnerCountForAdmin = useCallback((admin: Admin): number => {
-      return users.filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
+      if (!admin) return 0;
+      return (users ?? []).filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
   }, [users]);
 
 
@@ -213,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     addAttendanceRecord,
     updateAttendanceRecord,
     getTodaysAttendance,
-    adminReferralCode: settings.referralCode,
+    adminReferralCode: settings?.referralCode ?? null,
     updateUserProfile,
     getAdminForPartner,
     getPartnerCountForAdmin,

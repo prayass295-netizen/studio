@@ -13,6 +13,8 @@ export function Header() {
   const { currentUser, logout, adminReferralCode } = useAuth();
   const pathname = usePathname();
 
+  if (!currentUser) return null; // Don't render header if not logged in
+
   const navLinks =
     currentUser?.role === 'admin'
       ? [
@@ -30,7 +32,7 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-sm">
       <div className="container flex h-16 items-center">
         <div className="mr-4 flex items-center">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={currentUser.role === 'admin' ? '/admin/dashboard' : '/partner/dashboard'} className="flex items-center gap-2">
             <PrayasLogo className="h-6 w-6 text-primary" />
             <span className="font-bold">Prayas</span>
           </Link>

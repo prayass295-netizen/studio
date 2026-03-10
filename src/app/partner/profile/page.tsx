@@ -5,30 +5,34 @@ import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User as UserIcon, Upload, Trash2, Phone, Shield } from 'lucide-react';
+import { User as UserIcon, Upload, Trash2, Phone, Shield, Loader } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Partner, Admin } from '@/lib/types';
+import type { Partner } from '@/lib/types';
 
 export default function PartnerProfilePage() {
   const { currentUser, updateUserProfile, getAdminForPartner } = useAuth();
   
-  if (!currentUser) {
-    return null;
-  }
-
-  const partner = currentUser as Partner;
-  const admin = getAdminForPartner(partner);
+  const partner = currentUser as Partner | null;
+  const admin = partner ? getAdminForPartner(partner) : null;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phoneNumber, setPhoneNumber] = useState(partner?.phoneNumber || '');
 
   // Effect to sync phone number if currentUser changes from another tab
   useEffect(() => {
-    if ((currentUser as Partner).phoneNumber) {
-      setPhoneNumber((currentUser as Partner).phoneNumber || '');
+    if (partner) {
+      setPhoneNumber(partner.phoneNumber || '');
     }
-  }, [currentUser]);
+  }, [partner]);
+
+  if (!currentUser || !partner) {
+    return (
+       <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const photo = currentUser?.photoUrl;
 

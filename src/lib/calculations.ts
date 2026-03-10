@@ -45,10 +45,10 @@ export function calculateOvertimeIncentive(dailyAttendance: AttendanceRecord[], 
   const lastCheckOut = dailyAttendance
     .filter(rec => rec.checkOut)
     .reduce((latest, current) => {
-      if (!latest.checkOut) return current;
+      if (!latest || !latest.checkOut) return current;
       if (!current.checkOut) return latest;
       return new Date(current.checkOut) > new Date(latest.checkOut) ? current : latest;
-    }, { checkOut: undefined } as Partial<AttendanceRecord>);
+    }, null as AttendanceRecord | null);
 
 
   if (!lastCheckOut || !lastCheckOut.checkOut) {

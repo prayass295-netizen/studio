@@ -8,18 +8,23 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { User as UserIcon, Upload, Trash2, Copy, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Admin } from '@/lib/types';
+import { Loader } from 'lucide-react';
 
 export default function AdminProfilePage() {
   const { currentUser, updateUserProfile, getPartnerCountForAdmin, adminReferralCode } = useAuth();
   const { toast } = useToast();
 
-  if (!currentUser) {
-    return null; // The layout will show a loader, so we just wait.
-  }
-  
-  const admin = currentUser as Admin;
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const admin = currentUser as Admin | null;
+
+  if (!admin) {
+    return (
+       <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   
   const photo = currentUser?.photoUrl;
 

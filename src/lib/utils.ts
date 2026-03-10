@@ -18,6 +18,7 @@ export function formatCurrency(amount: number): string {
 }
 
 export function calculateDuration(startTime: string, endTime?: string): string {
+  if (!startTime) return "0s";
   const start = new Date(startTime);
   const end = endTime ? new Date(endTime) : new Date();
   
@@ -32,8 +33,10 @@ export function calculateDuration(startTime: string, endTime?: string): string {
   const mStr = minutes > 0 ? `${minutes}m ` : '';
   const sStr = `${seconds}s`;
 
-  if (!hStr && !mStr && !sStr) return "0s";
-  return `${hStr}${mStr}${sStr}`.trim();
+  const result = `${hStr}${mStr}${sStr}`.trim();
+  if (result === "0s" && !endTime) return "Live";
+  if (!result) return "0s";
+  return result;
 }
 
 export function formatTime(date: Date | string): string {

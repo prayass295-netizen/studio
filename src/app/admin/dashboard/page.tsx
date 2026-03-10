@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,8 +32,9 @@ export default function AdminDashboard() {
   const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails, getTodaysAttendance } = useAuth();
   const { toast } = useToast();
   
-  const [partners, setPartners] = useState<Partner[]>(getPartners());
-  const [pendingPartners, setPendingPartners] = useState<Partner[]>(getPendingPartners());
+  const partners = useMemo(() => getPartners(), [getPartners]);
+  const pendingPartners = useMemo(() => getPendingPartners(), [getPendingPartners]);
+  const approvedPartners = useMemo(() => partners.filter(p => p.approved), [partners]);
   
   const [salary, setSalary] = useState('');
   const [shiftStartTime, setShiftStartTime] = useState('09:00');
@@ -43,7 +44,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const calculateLiveData = () => {
-        const approvedPartners = getPartners().filter(p => p.approved);
         const data = approvedPartners.map(partner => {
             const todaysAttendance = getTodaysAttendance(partner.id)
                 .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
@@ -80,7 +80,7 @@ export default function AdminDashboard() {
     const intervalId = setInterval(calculateLiveData, 5000); 
 
     return () => clearInterval(intervalId);
-  }, [getPartners, getTodaysAttendance]);
+  }, [approvedPartners, getTodaysAttendance]);
 
   const handleApprove = (partnerId: string) => {
     const baseSalary = parseFloat(salary);
@@ -96,8 +96,6 @@ export default function AdminDashboard() {
     const success = approvePartner(partnerId, baseSalary, shiftStartTime, shiftEndTime);
     if (success) {
       toast({ title: 'Partner Approved', description: 'The partner can now log in and use the system.' });
-      setPartners(getPartners());
-      setPendingPartners(getPendingPartners());
       setSalary('');
       setShiftStartTime('09:00');
       setShiftEndTime('17:00');
@@ -122,7 +120,6 @@ export default function AdminDashboard() {
     const success = updatePartnerDetails(editingPartner.id, { baseSalary, shiftStartTime, shiftEndTime });
     if (success) {
         toast({ title: 'Partner Updated', description: `${editingPartner.username}'s details have been updated.` });
-        setPartners(getPartners());
         setEditingPartner(null); // Close dialog
     } else {
         toast({ variant: 'destructive', title: 'Update Failed', description: 'Something went wrong. Please try again.' });
@@ -235,7 +232,7 @@ export default function AdminDashboard() {
             <CardDescription>View and manage all registered partners.</CardDescription>
           </CardHeader>
           <CardContent>
-             {partners.filter(p => p.approved).length > 0 ? (
+             {approvedPartners.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -247,7 +244,7 @@ export default function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {partners.filter(p => p.approved).map(partner => (
+                  {approvedPartners.map(partner => (
                     <TableRow key={partner.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-3">

@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { AttendanceRecord, Partner } from '@/lib/types';
 import { calculateLatePenalty, calculateOvertimeIncentive, calculateTotalActiveTime } from '@/lib/calculations';
 import { formatCurrency, calculateDuration, formatDate } from '@/lib/utils';
-import { FileText } from 'lucide-react';
+import { FileText, Loader } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 
@@ -29,12 +29,11 @@ export default function PartnerReportsPage() {
     to: new Date(),
   });
 
-  if (!currentUser) {
-    return null;
-  }
-  const partner = currentUser as Partner;
+  const partner = useMemo(() => currentUser as Partner | null, [currentUser]);
 
   const reportData = useMemo(() => {
+    if (!partner) return [];
+
     const data: ReportRow[] = [];
     const attendance = getPartnerAttendance(partner.id);
     
@@ -78,6 +77,14 @@ export default function PartnerReportsPage() {
     }, 0);
   }, [reportData]);
   
+  if (!currentUser || !partner) {
+     return (
+       <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Loader className="h-8 w-8 animate-spin text-primary" />
+      </div>
+     )
+  }
+
   const handleFilterChange = (value: string) => {
     setFilter(value);
     const today = new Date();
