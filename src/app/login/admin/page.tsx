@@ -38,16 +38,20 @@ export default function AdminAuthPage() {
   
   const [activeTab, setActiveTab] = useState('login');
   const [isClient, setIsClient] = useState(false);
+  const [initialTabSet, setInitialTabSet] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
   useEffect(() => {
-    if (isClient) {
+    // Only set the initial tab after client has mounted.
+    // Do not automatically switch tabs after this.
+    if (isClient && !initialTabSet) {
       setActiveTab(hasAdminAccount ? 'login' : 'register');
+      setInitialTabSet(true);
     }
-  }, [hasAdminAccount, isClient]);
+  }, [isClient, hasAdminAccount, initialTabSet]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
