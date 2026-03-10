@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatDeadline, formatCurrency } from '@/lib/utils';
-import { ClipboardList, PlusCircle, Settings, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ClipboardList, PlusCircle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const taskSchema = z.object({
@@ -37,51 +37,25 @@ const taskSchema = z.object({
   ),
 });
 
-const settingsSchema = z.object({
-    monthlyTaskTarget: z.preprocess(
-        (a) => parseInt(z.string().parse(a), 10),
-        z.number().positive('Target must be a positive number.')
-    ),
-    monthlyTaskBonus: z.preprocess(
-        (a) => parseInt(z.string().parse(a), 10),
-        z.number().positive('Bonus must be a positive number.')
-    ),
-});
-
 export default function AdminTasksPage() {
-  const { getPartners, createTask, getAllTasks, approveTask, updateTask, getAdminSettings, updateAdminSettings } = useAuth();
+  const { getPartners, createTask, getAllTasks, approveTask, updateTask } = useAuth();
   const { toast } = useToast();
 
   const [openCreate, setOpenCreate] = useState(false);
-  const [openSettings, setOpenSettings] = useState(false);
   
   const partners = useMemo(() => getPartners().filter(p => p.approved), [getPartners]);
   const allTasks = useMemo(() => getAllTasks(), [getAllTasks]);
-  const adminSettings = useMemo(() => getAdminSettings(), [getAdminSettings]);
 
   const taskForm = useForm<z.infer<typeof taskSchema>>({
     resolver: zodResolver(taskSchema),
     defaultValues: { title: '', description: '', partnerId: '', incentive: 0 },
   });
 
-  const settingsForm = useForm<z.infer<typeof settingsSchema>>({
-      resolver: zodResolver(settingsSchema),
-      defaultValues: {
-          monthlyTaskTarget: adminSettings?.monthlyTaskTarget ?? 10,
-          monthlyTaskBonus: adminSettings?.monthlyTaskBonus ?? 2000,
-      }
-  })
-
   const onCreateSubmit = (values: z.infer<typeof taskSchema>) => {
     createTask(values);
     taskForm.reset();
     setOpenCreate(false);
   };
-
-  const onSettingsSubmit = (values: z.infer<typeof settingsSchema>) => {
-      updateAdminSettings(values);
-      setOpenSettings(false);
-  }
 
   const handleApprove = (taskId: string) => {
     approveTask(taskId);
@@ -101,32 +75,6 @@ export default function AdminTasksPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold flex items-center gap-2"><ClipboardList/> Task Management</h1>
         <div className="flex gap-2">
-           <Dialog open={openSettings} onOpenChange={setOpenSettings}>
-             <DialogTrigger asChild>
-                <Button variant="outline"><Settings className="mr-2 h-4 w-4"/>Bonus Settings</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Monthly Bonus Settings</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={settingsForm.handleSubmit(onSettingsSubmit)} className="space-y-4">
-                     <div>
-                        <Label htmlFor="monthlyTaskTarget">Monthly Task Target</Label>
-                        <Input id="monthlyTaskTarget" type="number" {...settingsForm.register('monthlyTaskTarget')} />
-                         {settingsForm.formState.errors.monthlyTaskTarget && <p className="text-destructive text-sm mt-1">{settingsForm.formState.errors.monthlyTaskTarget.message}</p>}
-                    </div>
-                     <div>
-                        <Label htmlFor="monthlyTaskBonus">Bonus Amount</Label>
-                        <Input id="monthlyTaskBonus" type="number" {...settingsForm.register('monthlyTaskBonus')} />
-                         {settingsForm.formState.errors.monthlyTaskBonus && <p className="text-destructive text-sm mt-1">{settingsForm.formState.errors.monthlyTaskBonus.message}</p>}
-                    </div>
-                    <DialogFooter>
-                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                        <Button type="submit">Save Settings</Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-           </Dialog>
             <Dialog open={openCreate} onOpenChange={setOpenCreate}>
             <DialogTrigger asChild>
                 <Button><PlusCircle className="mr-2 h-4 w-4"/>Create Task</Button>

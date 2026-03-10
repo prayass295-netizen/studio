@@ -1,41 +1,25 @@
 "use client";
 
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User as UserIcon, Upload, Trash2, Phone, Shield, Wallet, Award, Loader } from 'lucide-react';
+import { User as UserIcon, Upload, Trash2, Phone, Shield, Wallet, Loader } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Partner } from '@/lib/types';
-import { Progress } from '@/components/ui/progress';
 import { formatCurrency } from '@/lib/utils';
 
 
 export default function PartnerProfilePage() {
-  const { currentUser, updateUserProfile, getAdminForPartner, getTasksForPartner, getAdminSettings } = useAuth();
+  const { currentUser, updateUserProfile, getAdminForPartner } = useAuth();
   
   const partner = currentUser as Partner | null;
   const admin = partner ? getAdminForPartner(partner) : null;
-  const adminSettings = getAdminSettings();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phoneNumber, setPhoneNumber] = useState(partner?.phoneNumber || '');
-
-  const partnerTasks = useMemo(() => {
-    if (!partner) return [];
-    return getTasksForPartner(partner.id);
-  }, [partner, getTasksForPartner]);
-  
-  const approvedTasksCount = useMemo(() => {
-    return partnerTasks.filter(t => t.status === 'Approved').length;
-  }, [partnerTasks]);
-
-  const bonusTarget = adminSettings?.monthlyTaskTarget ?? 10;
-  const bonusAmount = adminSettings?.monthlyTaskBonus ?? 2000;
-  const progressPercentage = (approvedTasksCount / bonusTarget) * 100;
-
 
   // Effect to sync phone number if currentUser changes from another tab
   useEffect(() => {
@@ -116,14 +100,6 @@ export default function PartnerProfilePage() {
                         <div>
                             <p className="text-sm text-muted-foreground">Total Earned Incentives</p>
                             <p className="text-3xl font-bold text-green-600">{formatCurrency(partner.walletBalance ?? 0)}</p>
-                        </div>
-                         <div>
-                            <div className="flex justify-between items-center mb-1">
-                                <p className="text-sm font-medium flex items-center gap-2"><Award className="h-4 w-4 text-yellow-500"/>Monthly Bonus</p>
-                                <p className="text-sm font-bold">{approvedTasksCount} / {bonusTarget} tasks</p>
-                            </div>
-                            <Progress value={progressPercentage} className="h-2" />
-                            <p className="text-xs text-muted-foreground mt-1">Complete {bonusTarget} tasks this month to earn an extra {formatCurrency(bonusAmount)}.</p>
                         </div>
                     </CardContent>
                 </Card>

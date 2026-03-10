@@ -32,8 +32,6 @@ interface AuthContextType {
   getTasksForPartner: (partnerId: string) => Task[];
   getAllTasks: () => Task[];
   approveTask: (taskId: string) => void;
-  getAdminSettings: () => AdminSettings | undefined;
-  updateAdminSettings: (settings: Partial<AdminSettings>) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -71,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       referralCode,
     };
     setUsers(prev => [...(prev ?? []), newAdmin]);
-    setAdminSettings(prev => ({ ...(prev ?? { referralCode: null }), referralCode }));
+    setAdminSettings({ referralCode });
     return newAdmin;
   }, [users, setUsers, setAdminSettings, toast]);
   
@@ -281,13 +279,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const getAllTasks = useCallback(() => (tasks ?? []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [tasks]);
 
-  const getAdminSettings = useCallback(() => adminSettings, [adminSettings]);
-
-  const updateAdminSettings = useCallback((settingsUpdate: Partial<AdminSettings>) => {
-      setAdminSettings(prev => ({ ...(prev ?? { referralCode: null }), ...settingsUpdate }));
-      toast({ title: 'Settings Updated' });
-  }, [setAdminSettings, toast]);
-
   const value = {
     currentUser,
     login,
@@ -312,8 +303,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getTasksForPartner,
     getAllTasks,
     approveTask,
-    getAdminSettings,
-    updateAdminSettings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

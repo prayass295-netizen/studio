@@ -50,6 +50,4 @@ export type Task = {
 
 export type AdminSettings = {
   referralCode: string | null;
-  monthlyTaskTarget?: number;
-  monthlyTaskBonus?: number;
 };
