@@ -3,7 +3,7 @@
 import { createContext, ReactNode, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/hooks/use-local-storage';
-import type { Admin, Partner, User, AttendanceRecord, AdminSettings } from '@/lib/types';
+import type { Admin, Partner, User, AttendanceRecord, AdminSettings, Task, TaskStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { generateReferralCode } from '@/lib/utils';
 
@@ -26,6 +26,14 @@ interface AuthContextType {
   getAdminForPartner: (partner: Partner) => Admin | null;
   getPartnerCountForAdmin: (admin: Admin) => number;
   hasAdminAccount: boolean;
+  // Task Management
+  createTask: (taskData: Omit<Task, 'id' | 'status' | 'createdAt'>) => Task | null;
+  updateTask: (taskId: string, updates: Partial<Task>) => Task | null;
+  getTasksForPartner: (partnerId: string) => Task[];
+  getAllTasks: () => Task[];
+  approveTask: (taskId: string) => void;
+  getAdminSettings: () => AdminSettings | undefined;
+  updateAdminSettings: (settings: Partial<AdminSettings>) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -33,13 +41,14 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useLocalStorage<User[]>('prayas_users', []);
   const [attendance, setAttendance] = useLocalStorage<AttendanceRecord[]>('prayas_attendance', []);
-  const [settings, setSettings] = useLocalStorage<AdminSettings>('prayas_settings', { referralCode: null });
+  const [tasks, setTasks] = useLocalStorage<Task[]>('prayas_tasks', []);
+  const [adminSettings, setAdminSettings] = useLocalStorage<AdminSettings>('prayas_settings', { referralCode: null });
   const [currentUser, setCurrentUser] = useLocalStorage<User | null | undefined>('prayas_currentUser', undefined);
   const router = useRouter();
   const { toast } = useToast();
 
   const hasAdminAccount = useMemo(() => {
-    if (users === undefined) return false; // Not loaded yet
+    if (users === undefined) return false;
     return users.some(u => u.role === 'admin');
   }, [users]);
 
@@ -62,12 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       referralCode,
     };
     setUsers(prev => [...(prev ?? []), newAdmin]);
-    setSettings({ referralCode });
+    setAdminSettings(prev => ({ ...(prev ?? { referralCode: null }), referralCode }));
     return newAdmin;
-  }, [users, setUsers, setSettings, toast]);
+  }, [users, setUsers, setAdminSettings, toast]);
   
-  const registerPartner = useCallback((username: string, password: string, adminReferralCode: string): Partner | null => {
-    if (settings?.referralCode !== adminReferralCode) {
+  const registerPartner = useCallback((username: string, password: string, referralCode: string): Partner | null => {
+    if (adminSettings?.referralCode !== referralCode) {
       toast({ variant: 'destructive', title: 'Error', description: 'Invalid referral code.' });
       return null;
     }
@@ -81,11 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       role: 'partner',
       approved: false,
-      adminReferralCode
+      adminReferralCode: referralCode,
+      walletBalance: 0,
     };
     setUsers(prev => [...(prev ?? []), newPartner]);
     return newPartner;
-  }, [users, setUsers, settings, toast]);
+  }, [users, setUsers, adminSettings, toast]);
 
   const login = useCallback((username: string, password: string): User | null => {
     const user = users?.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
@@ -115,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUsers = (prevUsers ?? []).map(u => {
         if (u.id === partnerId) {
           success = true;
-          return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime, destination };
+          return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime, destination, walletBalance: 0 };
         }
         return u;
       });
@@ -203,6 +213,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return users.filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
   }, [users]);
 
+  // --- Task Management ---
+
+  const createTask = useCallback((taskData: Omit<Task, 'id' | 'status' | 'createdAt'>) => {
+    const newTask: Task = {
+      ...taskData,
+      id: `task_${Date.now()}`,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+    };
+    setTasks(prev => [...(prev ?? []), newTask]);
+    toast({ title: 'Task Created', description: `Task "${newTask.title}" has been assigned.`});
+    return newTask;
+  }, [setTasks, toast]);
+
+  const updateTask = useCallback((taskId: string, updates: Partial<Task>) => {
+    let updatedTask: Task | null = null;
+    setTasks(prev => (prev ?? []).map(t => {
+      if (t.id === taskId) {
+        updatedTask = { ...t, ...updates };
+        return updatedTask;
+      }
+      return t;
+    }));
+    return updatedTask;
+  }, [setTasks]);
+  
+  const approveTask = useCallback((taskId: string) => {
+    const task = (tasks ?? []).find(t => t.id === taskId);
+    if (!task) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Task not found.' });
+        return;
+    }
+    if (task.status === 'Approved') {
+        toast({ title: 'Already Approved', description: 'This task has already been approved.' });
+        return;
+    }
+
+    updateTask(taskId, { status: 'Approved' });
+    setUsers(prevUsers => (prevUsers ?? []).map(u => {
+        if (u.id === task.partnerId && u.role === 'partner') {
+            const partner = u as Partner;
+            const newBalance = (partner.walletBalance ?? 0) + task.incentive;
+            return { ...partner, walletBalance: newBalance };
+        }
+        return u;
+    }));
+
+    // Update currentUser if the approved task belongs to them
+    if (currentUser?.id === task.partnerId) {
+        setCurrentUser(prev => {
+            if (prev && prev.role === 'partner') {
+                 const partner = prev as Partner;
+                 const newBalance = (partner.walletBalance ?? 0) + task.incentive;
+                 return { ...partner, walletBalance: newBalance };
+            }
+            return prev;
+        });
+    }
+
+    toast({ title: 'Task Approved!', description: `Incentive of ${task.incentive} added to partner's wallet.`});
+  }, [tasks, updateTask, setUsers, currentUser, setCurrentUser, toast]);
+
+  const getTasksForPartner = useCallback((partnerId: string) => {
+    return (tasks ?? []).filter(t => t.partnerId === partnerId).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [tasks]);
+
+  const getAllTasks = useCallback(() => (tasks ?? []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [tasks]);
+
+  const getAdminSettings = useCallback(() => adminSettings, [adminSettings]);
+
+  const updateAdminSettings = useCallback((settingsUpdate: Partial<AdminSettings>) => {
+      setAdminSettings(prev => ({ ...(prev ?? { referralCode: null }), ...settingsUpdate }));
+      toast({ title: 'Settings Updated' });
+  }, [setAdminSettings, toast]);
 
   const value = {
     currentUser,
@@ -218,11 +302,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     addAttendanceRecord,
     updateAttendanceRecord,
     getTodaysAttendance,
-    adminReferralCode: settings?.referralCode ?? null,
+    adminReferralCode: adminSettings?.referralCode ?? null,
     updateUserProfile,
     getAdminForPartner,
     getPartnerCountForAdmin,
     hasAdminAccount,
+    createTask,
+    updateTask,
+    getTasksForPartner,
+    getAllTasks,
+    approveTask,
+    getAdminSettings,
+    updateAdminSettings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

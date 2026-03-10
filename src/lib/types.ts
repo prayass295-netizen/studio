@@ -1,5 +1,7 @@
 export type UserRole = 'admin' | 'partner';
 
+export type TaskStatus = 'Pending' | 'Acknowledged' | 'InProgress' | 'Completed' | 'Approved' | 'Rejected';
+
 export interface User {
   id: string;
   username: string;
@@ -23,6 +25,7 @@ export interface Admin extends User {
 export interface Partner extends User {
   role: 'partner';
   adminReferralCode: string;
+  walletBalance?: number;
 }
 
 export type AttendanceRecord = {
@@ -32,6 +35,21 @@ export type AttendanceRecord = {
   checkOut?: string; // ISO string
 };
 
+export type Task = {
+    id: string;
+    partnerId: string;
+    title: string;
+    description: string;
+    incentive: number;
+    deadline: string; // ISO string
+    status: TaskStatus;
+    createdAt: string; // ISO string
+    acknowledgedAt?: string; // ISO string
+    completedAt?: string; // ISO string
+};
+
 export type AdminSettings = {
   referralCode: string | null;
+  monthlyTaskTarget?: number;
+  monthlyTaskBonus?: number;
 };

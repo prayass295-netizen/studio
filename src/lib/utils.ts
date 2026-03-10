@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { formatDistanceToNowStrict } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -13,7 +14,8 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
@@ -47,4 +49,13 @@ export function formatTime(date: Date | string): string {
 export function formatDate(date: Date | string): string {
     const d = typeof date === 'string' ? new Date(date) : date;
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export function formatDeadline(deadline: string): string {
+  const d = new Date(deadline);
+  const now = new Date();
+  if (d < now) {
+    return `${formatDistanceToNowStrict(d, { addSuffix: true })}`;
+  }
+  return `Due in ${formatDistanceToNowStrict(d)}`;
 }

@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Partner, AttendanceRecord } from '@/lib/types';
+import type { Partner, AttendanceRecord, Task } from '@/lib/types';
 import { 
   calculateLateMinutes, 
   calculateOvertimeMinutes,
   getAttendanceStatus
 } from '@/lib/calculations';
-import { formatDate, formatTime } from '@/lib/utils';
+import { formatDate, formatTime, formatCurrency } from '@/lib/utils';
 import { exportToCsv } from '@/lib/csv';
 import { Download, FileText } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
@@ -37,7 +37,7 @@ type ReportRow = {
 };
 
 export default function AdminReportsPage() {
-  const { getPartners, getPartnerAttendance } = useAuth();
+  const { getPartners, getPartnerAttendance, getTasksForPartner } = useAuth();
   const { toast } = useToast();
   const [filter, setFilter] = useState('monthly');
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
@@ -114,13 +114,53 @@ export default function AdminReportsPage() {
       }
     });
   }, [selectedPartnerId, allPartners, getPartnerAttendance, dateRange]);
+  
+  const taskData = useMemo(() => {
+    if (!selectedPartnerId || !dateRange?.from || !dateRange.to) return { completedTasks: 0, incentiveEarned: 0 };
+    
+    const partnerTasks = getTasksForPartner(selectedPartnerId);
+    const tasksInPeriod = partnerTasks.filter(task => {
+        if (task.status !== 'Approved' || !task.completedAt) return false;
+        const completionDate = new Date(task.completedAt);
+        return completionDate >= dateRange.from! && completionDate <= dateRange.to!;
+    });
+    
+    const incentiveEarned = tasksInPeriod.reduce((sum, task) => sum + task.incentive, 0);
+
+    return {
+        completedTasks: tasksInPeriod.length,
+        incentiveEarned,
+    };
+  }, [selectedPartnerId, getTasksForPartner, dateRange]);
+
 
   const summary = useMemo(() => {
     const totalLateMinutes = reportData.reduce((sum, row) => sum + row.lateMinutes, 0);
     const totalLateCount = reportData.reduce((sum, row) => sum + row.lateCount, 0);
     const totalExtraMinutes = reportData.reduce((sum, row) => sum + row.extraMinutes, 0);
-    return { totalLateMinutes, totalLateCount, totalExtraMinutes };
-  }, [reportData]);
+    const partner = allPartners.find(p => p.id === selectedPartnerId);
+
+    const LATE_FINE_PER_MINUTE = 2;
+    const OVERTIME_INCENTIVE_PER_MINUTE = 1;
+
+    const totalFine = totalLateMinutes * LATE_FINE_PER_MINUTE;
+    const totalIncentiveFromOvertime = totalExtraMinutes * OVERTIME_INCENTIVE_PER_MINUTE;
+    
+    const baseSalary = partner?.baseSalary ?? 0;
+    const finalSalaryPayable = baseSalary - totalFine + totalIncentiveFromOvertime + taskData.incentiveEarned;
+
+    return { 
+        totalLateMinutes, 
+        totalLateCount, 
+        totalExtraMinutes,
+        totalFine,
+        totalIncentive: totalIncentiveFromOvertime + taskData.incentiveEarned,
+        tasksCompleted: taskData.completedTasks,
+        taskIncentive: taskData.incentiveEarned,
+        finalSalaryPayable,
+        baseSalary,
+    };
+  }, [reportData, selectedPartnerId, allPartners, taskData]);
 
   const handleFilterChange = (value: string) => {
     setFilter(value);
@@ -160,10 +200,16 @@ export default function AdminReportsPage() {
 
     const summaryRows = [
       {}, // Spacer
-      { 'Sr.No': '--- SUMMARY ---' },
-      { 'Sr.No': 'Total Late in Minute', 'Employee Name': summary.totalLateMinutes },
-      { 'Sr.No': 'Total Late Count', 'Employee Name': summary.totalLateCount },
-      { 'Sr.No': 'Total Extra Time (Minutes)', 'Employee Name': summary.totalExtraMinutes },
+      { 'Sr.No': '--- PAYROLL SUMMARY ---' },
+      { 'Sr.No': 'Base Salary', 'Employee Name': formatCurrency(summary.baseSalary) },
+      { 'Sr.No': 'Total Late (Minutes)', 'Employee Name': `${summary.totalLateMinutes} min` },
+      { 'Sr.No': 'Total Late Count (Days)', 'Employee Name': `${summary.totalLateCount} days` },
+      { 'Sr.No': 'Total Fine from Lateness', 'Employee Name': formatCurrency(summary.totalFine) },
+      { 'Sr.No': 'Total Overtime (Minutes)', 'Employee Name': `${summary.totalExtraMinutes} min`},
+      { 'Sr.No': 'Tasks Completed', 'Employee Name': summary.tasksCompleted },
+      { 'Sr.No': 'Task Incentives Earned', 'Employee Name': formatCurrency(summary.taskIncentive) },
+      { 'Sr.No': 'Total Incentives (Overtime + Tasks)', 'Employee Name': formatCurrency(summary.totalIncentive) },
+      { 'Sr.No': 'FINAL NET PAYABLE', 'Employee Name': formatCurrency(summary.finalSalaryPayable) },
     ];
 
     const fromDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : '';
@@ -267,11 +313,22 @@ export default function AdminReportsPage() {
               {reportData.length > 0 && (
                   <TableFooter className="bg-yellow-100/50 font-bold">
                       <TableRow>
-                          <TableCell colSpan={6} className="text-right border border-gray-300">Summary Totals</TableCell>
-                          <TableCell className={`border border-gray-300 ${summary.totalLateMinutes > 0 ? 'text-red-600' : ''}`}>{summary.totalLateMinutes} min</TableCell>
-                          <TableCell className={`border border-gray-300 ${summary.totalLateCount > 0 ? 'text-red-600' : ''}`}>{summary.totalLateCount} Days</TableCell>
-                          <TableCell colSpan={3} className="text-right border border-gray-300">Total Extra</TableCell>
+                          <TableCell colSpan={6} className="text-right border border-gray-300">Payroll Summary</TableCell>
+                          <TableCell colSpan={6} className="border border-gray-300" />
+                      </TableRow>
+                      <TableRow>
+                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Total Late / Fine</TableCell>
+                          <TableCell className={`border border-gray-300 ${summary.totalLateMinutes > 0 ? 'text-red-600' : ''}`}>{summary.totalLateMinutes} min ({summary.totalLateCount} days)</TableCell>
+                          <TableCell colSpan={5} className={`border border-gray-300 text-red-600`}>{formatCurrency(summary.totalFine)}</TableCell>
+                      </TableRow>
+                       <TableRow>
+                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Total Overtime & Incentives</TableCell>
                           <TableCell className="border border-gray-300 text-green-600">{summary.totalExtraMinutes} min</TableCell>
+                          <TableCell colSpan={5} className="border border-gray-300 text-green-600">{formatCurrency(summary.totalIncentive)} (Inc. {formatCurrency(summary.taskIncentive)} from {summary.tasksCompleted} tasks)</TableCell>
+                      </TableRow>
+                       <TableRow>
+                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Final Payable Salary</TableCell>
+                          <TableCell colSpan={6} className="border border-gray-300 text-lg">{formatCurrency(summary.finalSalaryPayable)}</TableCell>
                       </TableRow>
                   </TableFooter>
               )}

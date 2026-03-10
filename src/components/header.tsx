@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PrayasLogo } from '@/components/icons';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, User, Menu } from 'lucide-react';
+import { LogOut, User, Menu, ClipboardList } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -25,11 +25,13 @@ export function Header() {
     currentUser?.role === 'admin'
       ? [
           { href: '/admin/dashboard', label: 'Dashboard' },
+          { href: '/admin/tasks', label: 'Tasks' },
           { href: '/admin/reports', label: 'Reports' },
           { href: '/admin/profile', label: 'Profile' },
         ]
       : [
           { href: '/partner/dashboard', label: 'Dashboard' },
+          { href: '/partner/tasks', label: 'My Tasks' },
           { href: '/partner/reports', label: 'My Report' },
           { href: '/partner/profile', label: 'Profile' },
         ];
