@@ -32,6 +32,7 @@ interface AuthContextType {
   getTasksForPartner: (partnerId: string) => Task[];
   getAllTasks: () => Task[];
   approveTask: (taskId: string) => void;
+  getBulkTodaysAttendance: (partnerIds: string[]) => Record<string, AttendanceRecord[]>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -182,6 +183,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return a.userId === userId && checkInDate.getTime() === today.getTime();
     });
   }, [attendance]);
+  
+  const getBulkTodaysAttendance = useCallback((partnerIds: string[]) => {
+    const recordsByPartner: Record<string, AttendanceRecord[]> = {};
+    if (!Array.isArray(attendance) || partnerIds.length === 0) return recordsByPartner;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+    
+    const partnerIdSet = new Set(partnerIds);
+    partnerIds.forEach(id => recordsByPartner[id] = []);
+
+    attendance.forEach(a => {
+        if (partnerIdSet.has(a.userId)) {
+            const checkInDate = new Date(a.checkIn);
+            checkInDate.setHours(0,0,0,0);
+            if (checkInDate.getTime() === todayTime){
+                  recordsByPartner[a.userId].push(a);
+            }
+        }
+    });
+
+    return recordsByPartner;
+  }, [attendance]);
+
 
   const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string; walletBalance?: number; lastWalletReset?: string; }) => {
     const processUpdate = (user: User) => {
@@ -337,7 +363,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getTasksForPartner,
     getAllTasks,
     approveTask,
+    getBulkTodaysAttendance,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+    

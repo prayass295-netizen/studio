@@ -9,11 +9,13 @@ import { User as UserIcon, Upload, Trash2, Phone, Shield, Wallet, Loader } from 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Partner } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, compressImage } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 
 export default function PartnerProfilePage() {
   const { currentUser, updateUserProfile, getAdminForPartner } = useAuth();
+  const { toast } = useToast();
   
   const partner = currentUser as Partner | null;
   const admin = partner ? getAdminForPartner(partner) : null;
@@ -38,15 +40,20 @@ export default function PartnerProfilePage() {
 
   const photo = currentUser?.photoUrl;
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        updateUserProfile(partner.id, { photoUrl: result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressedImage = await compressImage(file, { maxSizeMB: 0.2, maxWidthOrHeight: 512 });
+        updateUserProfile(partner.id, { photoUrl: compressedImage });
+      } catch (error) {
+        console.error("Failed to compress image", error);
+        toast({
+            variant: "destructive",
+            title: "Image Processing Failed",
+            description: "Could not process the selected image. Please try another one.",
+        });
+      }
     }
   };
 
@@ -85,7 +92,7 @@ export default function PartnerProfilePage() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/*"
+                  accept="image/jpeg, image/png"
                 />
               </div>
               <CardTitle>{partner.username}</CardTitle>
@@ -141,3 +148,5 @@ export default function PartnerProfilePage() {
     </div>
   );
 }
+
+    

@@ -20,11 +20,7 @@ export default function PartnerDashboard() {
   const { currentUser, getTodaysAttendance, addAttendanceRecord, updateAttendanceRecord, getPartnerAttendance } = useAuth();
   const [todaysRecords, setTodaysRecords] = useState<AttendanceRecord[]>([]);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
-  const [liveMetrics, setLiveMetrics] = useState({
-    totalTime: 0,
-    lateMinutes: 0,
-    extraMinutes: 0,
-  });
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     if (currentUser) {
@@ -36,30 +32,43 @@ export default function PartnerDashboard() {
 
   const partner = useMemo(() => currentUser as Partner | null, [currentUser]);
 
-  useEffect(() => {
-     if (!currentUser || !partner) return;
-
-     const calculateMetrics = () => {
-      const currentRecords = getTodaysAttendance(currentUser.id);
-      const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
-      const { lateMinutes } = calculateLateMinutes(currentRecords, partner.shiftStartTime || '09:00');
-      const { overtimeMinutes } = calculateLiveOvertimeMinutes(currentRecords, partner.shiftEndTime || '17:00');
-      
-      setLiveMetrics({ totalTime, lateMinutes, extraMinutes: overtimeMinutes });
-    };
-
-    calculateMetrics();
-    const interval = setInterval(calculateMetrics, 1000);
-
-    return () => clearInterval(interval);
-  }, [currentUser, getTodaysAttendance, partner]);
-
   const lastRecord = useMemo(() => {
     if (!currentUser) return null;
     const currentDayRecords = getTodaysAttendance(currentUser.id);
     if (currentDayRecords.length === 0) return null;
     return currentDayRecords.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
-  }, [todaysRecords, currentUser, getTodaysAttendance]);
+  }, [getTodaysAttendance, currentUser]);
+
+  const canCheckOut = lastRecord && !lastRecord.checkOut;
+  const canCheckIn = !lastRecord || !!lastRecord.checkOut;
+
+  useEffect(() => {
+     if (canCheckOut) {
+        const interval = setInterval(() => {
+            setNow(new Date());
+        }, 1000); // Live timer updates every second only when checked in
+        return () => clearInterval(interval);
+     }
+  }, [canCheckOut]);
+
+  const liveMetrics = useMemo(() => {
+      if (!currentUser || !partner) return { totalTime: 0, lateMinutes: 0, extraMinutes: 0 };
+
+      const currentRecords = getTodaysAttendance(currentUser.id);
+      const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords, now);
+      const { lateMinutes } = calculateLateMinutes(currentRecords, partner.shiftStartTime || '09:00');
+      const { overtimeMinutes } = calculateLiveOvertimeMinutes(currentRecords, partner.shiftEndTime || '17:00', now);
+      
+      return { totalTime, lateMinutes, extraMinutes: overtimeMinutes };
+  }, [currentUser, getTodaysAttendance, partner, now]);
+
+  useEffect(() => {
+      // This effect ensures todaysRecords state is updated after a check-in/out action
+      if (currentUser) {
+          setTodaysRecords(getTodaysAttendance(currentUser.id));
+      }
+  }, [lastRecord, currentUser, getTodaysAttendance]);
+
 
   if (!currentUser || !partner) {
      return (
@@ -68,9 +77,6 @@ export default function PartnerDashboard() {
       </div>
      )
   }
-
-  const canCheckIn = !lastRecord || !!lastRecord.checkOut;
-  const canCheckOut = lastRecord && !lastRecord.checkOut;
 
   const handleCheckIn = () => {
     addAttendanceRecord(currentUser.id);
@@ -204,3 +210,5 @@ export default function PartnerDashboard() {
     </div>
   );
 }
+
+    

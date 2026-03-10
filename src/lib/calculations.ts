@@ -101,11 +101,11 @@ export function getAttendanceStatus(dailyAttendance: AttendanceRecord[], shiftSt
 /**
  * Calculates total active time for a live report, including ongoing sessions.
  */
-export function calculateTotalActiveTimeForLiveReport(attendanceRecords: AttendanceRecord[]): number {
+export function calculateTotalActiveTimeForLiveReport(attendanceRecords: AttendanceRecord[], now: Date): number {
     return attendanceRecords.reduce((total, record) => {
         const start = new Date(record.checkIn).getTime();
-        // If checkOut exists, use it. Otherwise, use current time for live calculation.
-        const end = record.checkOut ? new Date(record.checkOut).getTime() : new Date().getTime();
+        // If checkOut exists, use it. Otherwise, use the provided `now` Date object.
+        const end = record.checkOut ? new Date(record.checkOut).getTime() : now.getTime();
         return total + (end - start);
     }, 0);
 }
@@ -113,7 +113,7 @@ export function calculateTotalActiveTimeForLiveReport(attendanceRecords: Attenda
 /**
  * Calculates overtime minutes for a live report, considering the current time if a session is ongoing.
  */
-export function calculateLiveOvertimeMinutes(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { overtimeMinutes: number } {
+export function calculateLiveOvertimeMinutes(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string, now: Date): { overtimeMinutes: number } {
     if (dailyAttendance.length === 0 || !shiftEndTimeString) {
         return { overtimeMinutes: 0 };
     }
@@ -124,7 +124,7 @@ export function calculateLiveOvertimeMinutes(dailyAttendance: AttendanceRecord[]
     let effectiveEndTime: Date;
 
     if (lastRecord && !lastRecord.checkOut) {
-        effectiveEndTime = new Date();
+        effectiveEndTime = now;
     } else {
         const latestCheckOutTime = Math.max(...dailyAttendance.filter(r => r.checkOut).map(r => new Date(r.checkOut!).getTime()));
         if (latestCheckOutTime === -Infinity) {
@@ -146,3 +146,5 @@ export function calculateLiveOvertimeMinutes(dailyAttendance: AttendanceRecord[]
 
     return { overtimeMinutes: 0 };
 }
+
+    

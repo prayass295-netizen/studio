@@ -9,6 +9,7 @@ import { User as UserIcon, Upload, Trash2, Copy, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Admin } from '@/lib/types';
 import { Loader } from 'lucide-react';
+import { compressImage } from '@/lib/utils';
 
 export default function AdminProfilePage() {
   const { currentUser, updateUserProfile, getPartnerCountForAdmin, adminReferralCode } = useAuth();
@@ -30,15 +31,20 @@ export default function AdminProfilePage() {
 
   const partnerCount = getPartnerCountForAdmin(admin);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        updateUserProfile(admin.id, { photoUrl: result });
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressedImage = await compressImage(file, { maxSizeMB: 0.2, maxWidthOrHeight: 512 });
+        updateUserProfile(admin.id, { photoUrl: compressedImage });
+      } catch (error) {
+        console.error("Failed to compress image", error);
+        toast({
+          variant: "destructive",
+          title: "Image Processing Failed",
+          description: "Could not process the selected image. Please try another one.",
+        });
+      }
     }
   };
 
@@ -78,7 +84,7 @@ export default function AdminProfilePage() {
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   className="hidden"
-                  accept="image/*"
+                  accept="image/jpeg, image/png"
                 />
               </div>
               <CardTitle>{admin.username}</CardTitle>
@@ -120,3 +126,5 @@ export default function AdminProfilePage() {
     </div>
   );
 }
+
+    

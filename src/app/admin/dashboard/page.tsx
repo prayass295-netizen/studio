@@ -28,7 +28,7 @@ type LivePartnerData = {
 };
 
 export default function AdminDashboard() {
-  const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails, getTodaysAttendance } = useAuth();
+  const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails, getBulkTodaysAttendance } = useAuth();
   const { toast } = useToast();
   
   const partners = useMemo(() => getPartners(), [getPartners]);
@@ -44,8 +44,16 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const calculateLiveData = () => {
+        const partnerIds = approvedPartners.map(p => p.id);
+        if (partnerIds.length === 0) {
+            setLiveData([]);
+            return;
+        }
+
+        const bulkAttendance = getBulkTodaysAttendance(partnerIds);
+
         const data = approvedPartners.map(partner => {
-            const todaysAttendance = getTodaysAttendance(partner.id)
+            const todaysAttendance = (bulkAttendance[partner.id] || [])
                 .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
             
             const firstCheckInRecord = todaysAttendance[0] ?? null;
@@ -73,10 +81,10 @@ export default function AdminDashboard() {
     };
 
     calculateLiveData();
-    const intervalId = setInterval(calculateLiveData, 5000); 
+    const intervalId = setInterval(calculateLiveData, 10000); // Poll every 10 seconds for performance
 
     return () => clearInterval(intervalId);
-  }, [approvedPartners, getTodaysAttendance]);
+  }, [approvedPartners, getBulkTodaysAttendance]);
 
   const handleApprove = (partnerId: string) => {
     const baseSalary = parseFloat(salary);
@@ -396,3 +404,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+    

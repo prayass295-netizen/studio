@@ -59,3 +59,55 @@ export function formatDeadline(deadline: string): string {
   }
   return `Due in ${formatDistanceToNowStrict(d)}`;
 }
+
+export function compressImage(file: File, options: { maxSizeMB: number; maxWidthOrHeight: number }): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const { width, height } = img;
+                let newWidth = width;
+                let newHeight = height;
+
+                if (width > height) {
+                    if (width > options.maxWidthOrHeight) {
+                        newHeight = height * (options.maxWidthOrHeight / width);
+                        newWidth = options.maxWidthOrHeight;
+                    }
+                } else {
+                    if (height > options.maxWidthOrHeight) {
+                        newWidth = width * (options.maxWidthOrHeight / height);
+                        newHeight = options.maxWidthOrHeight;
+                    }
+                }
+
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    return reject(new Error('Failed to get canvas context'));
+                }
+                ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+                let quality = 0.9;
+                let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                while (dataUrl.length / 1024 / 1024 > options.maxSizeMB && quality > 0.1) {
+                    quality -= 0.1;
+                    dataUrl = canvas.toDataURL('image/jpeg', quality);
+                }
+
+                resolve(dataUrl);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+}
+
+    
