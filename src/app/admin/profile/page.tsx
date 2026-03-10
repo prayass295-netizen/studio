@@ -52,9 +52,36 @@ export default function AdminProfilePage() {
     updateUserProfile(admin.id, { photoUrl: null });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+  const copyToClipboard = (text: string | null) => {
+    if (!text) {
+      toast({ variant: 'destructive', title: 'Error', description: 'No code to copy.' });
+      return;
+    }
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+      }).catch(err => {
+        toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy the code.' });
+        console.error('Could not copy text: ', err);
+      });
+    } else {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+      } catch (err) {
+        toast({ variant: 'destructive', title: 'Copy Failed', description: 'Your browser does not support copying.' });
+        console.error('Fallback copy failed: ', err);
+      }
+    }
   };
 
   return (
@@ -104,7 +131,7 @@ export default function AdminProfilePage() {
                             <p className="text-sm text-muted-foreground">Your Unique Referral ID</p>
                             <p className="text-2xl font-bold tracking-widest text-primary">{adminReferralCode}</p>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => adminReferralCode && copyToClipboard(adminReferralCode)}>
+                        <Button variant="ghost" size="icon" onClick={() => copyToClipboard(adminReferralCode)}>
                             <Copy className="h-6 w-6"/>
                         </Button>
                     </div>
@@ -126,5 +153,3 @@ export default function AdminProfilePage() {
     </div>
   );
 }
-
-    
