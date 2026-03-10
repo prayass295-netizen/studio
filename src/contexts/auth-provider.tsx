@@ -38,7 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
-  const hasAdminAccount = useMemo(() => users?.some(u => u.role === 'admin') ?? false, [users]);
+  const hasAdminAccount = useMemo(() => {
+    if (users === undefined) return false; // Not loaded yet
+    return users.some(u => u.role === 'admin');
+  }, [users]);
 
   const registerAdmin = useCallback((username: string, password: string): Admin | null => {
     if (users?.some(u => u.role === 'admin')) {
@@ -161,9 +164,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const getPartnerAttendance = useCallback((partnerId: string) => (attendance ?? []).filter(a => a.userId === partnerId), [attendance]);
 
   const getTodaysAttendance = useCallback((userId: string) => {
+    if (!userId || !Array.isArray(attendance)) return [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return (attendance ?? []).filter(a => {
+    return attendance.filter(a => {
         if (!a.checkIn) return false;
         const checkInDate = new Date(a.checkIn);
         checkInDate.setHours(0,0,0,0);
@@ -172,32 +176,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [attendance]);
 
   const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => {
-    setUsers(prevUsers => 
-      (prevUsers ?? []).map(user => {
-        if (user.id === userId) {
-          const updatedUser = { ...user, ...data };
-           if (data.photoUrl === null) {
-            updatedUser.photoUrl = undefined;
-          }
-          if (currentUser?.id === userId) {
-            setCurrentUser(updatedUser);
-          }
-          return updatedUser;
+    const processUpdate = (user: User) => {
+        const updatedUser = { ...user, ...data };
+        if (data.photoUrl === null) {
+            delete updatedUser.photoUrl;
         }
-        return user;
-      })
-    );
-    toast({ title: 'Profile Updated', description: 'Your changes have been saved.' });
+        return updatedUser;
+    };
+      
+    setUsers(prevUsers => (prevUsers ?? []).map(u => u.id === userId ? processUpdate(u) : u));
+
+    if (currentUser?.id === userId) {
+        setCurrentUser(prev => prev ? processUpdate(prev) : null);
+    }
+    
+    toast({ title: 'Profile Saved', description: 'Your photo and details are now saved on this device.' });
   }, [setUsers, currentUser, setCurrentUser, toast]);
 
   const getAdminForPartner = useCallback((partner: Partner): Admin | null => {
-      if (!partner) return null;
-      return (users ?? []).find(u => u.role === 'admin' && (u as Admin).referralCode === partner.adminReferralCode) as Admin | null;
+      if (!partner || !users) return null;
+      return users.find(u => u.role === 'admin' && (u as Admin).referralCode === partner.adminReferralCode) as Admin | null;
   }, [users]);
   
   const getPartnerCountForAdmin = useCallback((admin: Admin): number => {
-      if (!admin) return 0;
-      return (users ?? []).filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
+      if (!admin || !users) return 0;
+      return users.filter(u => u.role === 'partner' && (u as Partner).adminReferralCode === admin.referralCode).length;
   }, [users]);
 
 
