@@ -232,8 +232,8 @@ export default function AdminReportsPage() {
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
-        <CardHeader className="bg-yellow-100/50">
-          <CardTitle className="flex items-center gap-2"><FileText/>Attendance Reports</CardTitle>
+        <CardHeader className="bg-yellow-200/60">
+          <CardTitle className="flex items-center gap-2 text-black/90"><FileText/>Attendance Reports</CardTitle>
           <CardDescription className="mt-2 text-black/80 font-medium">
               {renderHeaderDateInfo()}
           </CardDescription>
@@ -267,68 +267,68 @@ export default function AdminReportsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <Table className="border-2 border-gray-300">
-              <TableHeader className="bg-yellow-100/50">
+            <Table className="border-2 border-gray-400">
+              <TableHeader className="bg-yellow-200/60 text-black/90">
                 <TableRow>
-                  <TableHead className="border border-gray-300">Sr.No</TableHead>
-                  <TableHead className="border border-gray-300">Employee Name</TableHead>
-                  <TableHead className="border border-gray-300">Destination</TableHead>
-                  <TableHead className="border border-gray-300">Date</TableHead>
-                  <TableHead className="border border-gray-300">Start Time In</TableHead>
-                  <TableHead className="border border-gray-300">Actual Time</TableHead>
-                  <TableHead className="border border-gray-300">Late Min. By</TableHead>
-                  <TableHead className="border border-gray-300">Late Count</TableHead>
-                  <TableHead className="border border-gray-300">Day Status</TableHead>
-                  <TableHead className="border border-gray-300">Time Out</TableHead>
-                  <TableHead className="border border-gray-300">Actual Time Out</TableHead>
-                  <TableHead className="border border-gray-300">Extra Min.</TableHead>
+                  <TableHead className="border-2 border-gray-400">Sr.No</TableHead>
+                  <TableHead className="border-2 border-gray-400">Employee Name</TableHead>
+                  <TableHead className="border-2 border-gray-400">Destination</TableHead>
+                  <TableHead className="border-2 border-gray-400">Date</TableHead>
+                  <TableHead className="border-2 border-gray-400">Start Time In</TableHead>
+                  <TableHead className="border-2 border-gray-400">Actual Time</TableHead>
+                  <TableHead className="border-2 border-gray-400">Late Min. By</TableHead>
+                  <TableHead className="border-2 border-gray-400">Late Count</TableHead>
+                  <TableHead className="border-2 border-gray-400">Day Status</TableHead>
+                  <TableHead className="border-2 border-gray-400">Time Out</TableHead>
+                  <TableHead className="border-2 border-gray-400">Actual Time Out</TableHead>
+                  <TableHead className="border-2 border-gray-400">Extra Min.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {reportData.length > 0 ? (
                   reportData.map((row) => (
-                    <TableRow key={row.srNo} className={(row.isWeekend || row.actualCheckIn === 'Absent') ? 'bg-yellow-100/30' : ''}>
-                      <TableCell className="border border-gray-300">{row.srNo}</TableCell>
-                      <TableCell className="border border-gray-300 font-medium">{row.partnerName}</TableCell>
-                      <TableCell className="border border-gray-300">{row.destination}</TableCell>
-                      <TableCell className="border border-gray-300">{row.date}</TableCell>
-                      <TableCell className="border border-gray-300">{row.assignedStartTime}</TableCell>
-                      <TableCell className={`border border-gray-300 ${statusColors[row.status]}`}>{row.actualCheckIn}</TableCell>
-                      <TableCell className={`border border-gray-300 ${statusColors[row.status]}`}>{row.lateMinutes > 0 ? row.lateMinutes : '-'}</TableCell>
-                      <TableCell className={`border border-gray-300 ${row.lateCount > 0 ? 'text-red-600' : ''}`}>{row.lateCount > 0 ? row.lateCount : '-'}</TableCell>
-                      <TableCell className="border border-gray-300">{row.isWeekend ? 'Week Off' : row.actualCheckIn === 'Absent' ? 'Absent' : 'Present'}</TableCell>
-                      <TableCell className="border border-gray-300">{row.assignedEndTime}</TableCell>
-                      <TableCell className={`border border-gray-300 ${row.extraMinutes > 0 ? 'text-green-600' : ''}`}>{row.actualCheckOut}</TableCell>
-                      <TableCell className="border border-gray-300 font-medium text-green-600">{row.extraMinutes > 0 ? row.extraMinutes : '-'}</TableCell>
+                    <TableRow key={row.srNo} className={(row.isWeekend || row.actualCheckIn === 'Absent') ? 'bg-yellow-100/40' : ''}>
+                      <TableCell className="border-2 border-gray-400">{row.srNo}</TableCell>
+                      <TableCell className="border-2 border-gray-400 font-medium">{row.partnerName}</TableCell>
+                      <TableCell className="border-2 border-gray-400">{row.destination}</TableCell>
+                      <TableCell className="border-2 border-gray-400">{row.date}</TableCell>
+                      <TableCell className="border-2 border-gray-400">{row.assignedStartTime}</TableCell>
+                      <TableCell className={`border-2 border-gray-400 ${statusColors[row.status]}`}>{row.actualCheckIn}</TableCell>
+                      <TableCell className={`border-2 border-gray-400 ${statusColors[row.status]}`}>{row.lateMinutes > 0 ? row.lateMinutes : '-'}</TableCell>
+                      <TableCell className={`border-2 border-gray-400 ${row.lateCount > 0 ? 'text-red-600' : ''}`}>{row.lateCount > 0 ? row.lateCount : '-'}</TableCell>
+                      <TableCell className="border-2 border-gray-400">{row.isWeekend ? 'Week Off' : row.actualCheckIn === 'Absent' ? 'Absent' : 'Present'}</TableCell>
+                      <TableCell className="border-2 border-gray-400">{row.assignedEndTime}</TableCell>
+                      <TableCell className={`border-2 border-gray-400 ${row.extraMinutes > 0 ? 'text-green-600' : ''}`}>{row.actualCheckOut}</TableCell>
+                      <TableCell className="border-2 border-gray-400 font-medium text-green-600">{row.extraMinutes > 0 ? row.extraMinutes : '-'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={12} className="h-24 text-center border border-gray-300">
+                    <TableCell colSpan={12} className="h-24 text-center border-2 border-gray-400">
                       {selectedPartnerId ? 'No attendance data available for the selected partner and period.' : 'Please select a partner to view their report.'}
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
               {reportData.length > 0 && (
-                  <TableFooter className="bg-yellow-100/50 font-bold">
+                  <TableFooter className="bg-yellow-200/60 font-bold text-black/90">
                       <TableRow>
-                          <TableCell colSpan={6} className="text-right border border-gray-300">Payroll Summary</TableCell>
-                          <TableCell colSpan={6} className="border border-gray-300" />
+                          <TableCell colSpan={6} className="text-right border-2 border-gray-400">Payroll Summary</TableCell>
+                          <TableCell colSpan={6} className="border-2 border-gray-400" />
                       </TableRow>
                       <TableRow>
-                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Total Late / Fine</TableCell>
-                          <TableCell className={`border border-gray-300 ${summary.totalLateMinutes > 0 ? 'text-red-600' : ''}`}>{summary.totalLateMinutes} min ({summary.totalLateCount} days)</TableCell>
-                          <TableCell colSpan={5} className={`border border-gray-300 text-red-600`}>{formatCurrency(summary.totalFine)}</TableCell>
+                          <TableCell colSpan={6} className="text-right border-r-2 border-gray-400">Total Late / Fine</TableCell>
+                          <TableCell className={`border-2 border-gray-400 ${summary.totalLateMinutes > 0 ? 'text-red-600' : ''}`}>{summary.totalLateMinutes} min ({summary.totalLateCount} days)</TableCell>
+                          <TableCell colSpan={5} className={`border-2 border-gray-400 text-red-600`}>{formatCurrency(summary.totalFine)}</TableCell>
                       </TableRow>
                        <TableRow>
-                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Total Overtime & Incentives</TableCell>
-                          <TableCell className="border border-gray-300 text-green-600">{summary.totalExtraMinutes} min</TableCell>
-                          <TableCell colSpan={5} className="border border-gray-300 text-green-600">{formatCurrency(summary.totalIncentive)} (Inc. {formatCurrency(summary.taskIncentive)} from {summary.tasksCompleted} tasks)</TableCell>
+                          <TableCell colSpan={6} className="text-right border-r-2 border-gray-400">Total Overtime & Incentives</TableCell>
+                          <TableCell className="border-2 border-gray-400 text-green-600">{summary.totalExtraMinutes} min</TableCell>
+                          <TableCell colSpan={5} className="border-2 border-gray-400 text-green-600">{formatCurrency(summary.totalIncentive)} (Inc. {formatCurrency(summary.taskIncentive)} from {summary.tasksCompleted} tasks)</TableCell>
                       </TableRow>
                        <TableRow>
-                          <TableCell colSpan={6} className="text-right border-r border-gray-300">Final Payable Salary</TableCell>
-                          <TableCell colSpan={6} className="border border-gray-300 text-lg">{formatCurrency(summary.finalSalaryPayable)}</TableCell>
+                          <TableCell colSpan={6} className="text-right border-r-2 border-gray-400">Final Payable Salary</TableCell>
+                          <TableCell colSpan={6} className="border-2 border-gray-400 text-lg">{formatCurrency(summary.finalSalaryPayable)}</TableCell>
                       </TableRow>
                   </TableFooter>
               )}
