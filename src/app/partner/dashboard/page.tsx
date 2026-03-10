@@ -27,40 +27,39 @@ export default function PartnerDashboard() {
     netPay: 0,
   });
 
+  if (!currentUser) {
+    return null;
+  }
+
   const partner = currentUser as Partner;
 
   useEffect(() => {
-    if (currentUser) {
-      const today = getTodaysAttendance(currentUser.id);
-      setTodaysRecords(today);
-      setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
-    }
+    const today = getTodaysAttendance(currentUser.id);
+    setTodaysRecords(today);
+    setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
   }, [currentUser, getTodaysAttendance, getPartnerAttendance]);
 
   useEffect(() => {
-     if (currentUser) {
-      const calculateMetrics = () => {
-        const currentRecords = getTodaysAttendance(currentUser.id);
-        const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
-        const { penalty } = calculateLatePenalty(currentRecords, partner.shiftStartTime || '09:00');
-        const { incentive } = calculateLiveOvertimeIncentive(currentRecords, partner.shiftEndTime || '17:00');
-        const dailySalary = (partner.baseSalary ?? 0) / 30;
-        
-        const netPay = currentRecords.length > 0 ? dailySalary - penalty + incentive : 0;
-        
-        setLiveMetrics({ totalTime, fine: penalty, incentive, netPay });
-      };
+     const calculateMetrics = () => {
+      const currentRecords = getTodaysAttendance(currentUser.id);
+      const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
+      const { penalty } = calculateLatePenalty(currentRecords, partner.shiftStartTime || '09:00');
+      const { incentive } = calculateLiveOvertimeIncentive(currentRecords, partner.shiftEndTime || '17:00');
+      const dailySalary = (partner.baseSalary ?? 0) / 30;
+      
+      const netPay = currentRecords.length > 0 ? dailySalary - penalty + incentive : 0;
+      
+      setLiveMetrics({ totalTime, fine: penalty, incentive, netPay });
+    };
 
-      calculateMetrics();
-      const interval = setInterval(calculateMetrics, 1000);
+    calculateMetrics();
+    const interval = setInterval(calculateMetrics, 1000);
 
-      return () => clearInterval(interval);
-    }
+    return () => clearInterval(interval);
   }, [currentUser, getTodaysAttendance, partner]);
 
   const lastRecord = useMemo(() => {
-    // We need to get the latest records from state as it's more up-to-date
-    const currentDayRecords = getTodaysAttendance(currentUser!.id);
+    const currentDayRecords = getTodaysAttendance(currentUser.id);
     if (currentDayRecords.length === 0) return null;
     return currentDayRecords.sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
   }, [todaysRecords, currentUser, getTodaysAttendance]);
@@ -69,19 +68,17 @@ export default function PartnerDashboard() {
   const canCheckOut = lastRecord && !lastRecord.checkOut;
 
   const handleCheckIn = () => {
-    if (currentUser) {
-      addAttendanceRecord(currentUser.id);
-      const updatedRecords = getTodaysAttendance(currentUser.id);
-      setTodaysRecords(updatedRecords); // Refresh state
-      setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
-    }
+    addAttendanceRecord(currentUser.id);
+    const updatedRecords = getTodaysAttendance(currentUser.id);
+    setTodaysRecords(updatedRecords);
+    setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
   };
 
   const handleCheckOut = () => {
-    if (currentUser && lastRecord) {
+    if (lastRecord) {
       updateAttendanceRecord(lastRecord.id);
       const updatedRecords = getTodaysAttendance(currentUser.id);
-      setTodaysRecords(updatedRecords); // Refresh state
+      setTodaysRecords(updatedRecords);
       setAllRecords(getPartnerAttendance(currentUser.id).sort((a,b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime()));
     }
   };

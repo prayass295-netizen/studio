@@ -13,6 +13,10 @@ import type { Partner, Admin } from '@/lib/types';
 export default function PartnerProfilePage() {
   const { currentUser, updateUserProfile, getAdminForPartner } = useAuth();
   
+  if (!currentUser) {
+    return null;
+  }
+
   const partner = currentUser as Partner;
   const admin = getAdminForPartner(partner);
 
@@ -21,7 +25,7 @@ export default function PartnerProfilePage() {
 
   // Effect to sync phone number if currentUser changes from another tab
   useEffect(() => {
-    if (currentUser && (currentUser as Partner).phoneNumber) {
+    if ((currentUser as Partner).phoneNumber) {
       setPhoneNumber((currentUser as Partner).phoneNumber || '');
     }
   }, [currentUser]);
@@ -48,8 +52,6 @@ export default function PartnerProfilePage() {
     updateUserProfile(partner.id, { phoneNumber });
   };
   
-  if (!currentUser) return null;
-
   return (
     <div className="container mx-auto p-4 md:p-8">
       <h1 className="text-3xl font-bold mb-6">My Profile</h1>

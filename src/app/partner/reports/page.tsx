@@ -29,11 +29,12 @@ export default function PartnerReportsPage() {
     to: new Date(),
   });
 
+  if (!currentUser) {
+    return null;
+  }
   const partner = currentUser as Partner;
 
   const reportData = useMemo(() => {
-    if (!partner) return [];
-
     const data: ReportRow[] = [];
     const attendance = getPartnerAttendance(partner.id);
     

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,15 @@ import type { Admin } from '@/lib/types';
 export default function AdminProfilePage() {
   const { currentUser, updateUserProfile, getPartnerCountForAdmin, adminReferralCode } = useAuth();
   const { toast } = useToast();
+
+  if (!currentUser) {
+    return null; // The layout will show a loader, so we just wait.
+  }
+  
   const admin = currentUser as Admin;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Use currentUser for the photo to ensure it updates reactively
   const photo = currentUser?.photoUrl;
 
   const partnerCount = getPartnerCountForAdmin(admin);
@@ -41,8 +45,6 @@ export default function AdminProfilePage() {
     navigator.clipboard.writeText(text);
     toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
   };
-
-  if (!currentUser) return null;
 
   return (
     <div className="container mx-auto p-4 md:p-8">
