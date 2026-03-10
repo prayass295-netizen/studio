@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,11 +11,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import type { Partner } from '@/lib/types';
-import { formatCurrency } from '@/lib/utils';
-import { Users, UserPlus, Edit } from 'lucide-react';
+import { formatCurrency, formatTime } from '@/lib/utils';
+import { Users, UserPlus, Edit, Eye } from 'lucide-react';
+import { getAttendanceStatus, calculateLatePenalty, calculateOvertimeIncentive } from '@/lib/calculations';
+import { StatusIndicator } from '@/components/status-indicator';
+
+type LivePartnerData = {
+  id: string;
+  username: string;
+  status: 'In' | 'Out';
+  checkInTime: string;
+  punctuality: 'green' | 'yellow' | 'red' | 'gray';
+  deductions: number;
+  incentives: number;
+  netPay: number;
+};
 
 export default function AdminDashboard() {
-  const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails } = useAuth();
+  const { getPartners, getPendingPartners, approvePartner, updatePartnerDetails, getTodaysAttendance } = useAuth();
   const { toast } = useToast();
   
   const [partners, setPartners] = useState<Partner[]>(getPartners());
@@ -25,6 +38,48 @@ export default function AdminDashboard() {
   const [shiftStartTime, setShiftStartTime] = useState('09:00');
   const [shiftEndTime, setShiftEndTime] = useState('17:00');
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [liveData, setLiveData] = useState<LivePartnerData[]>([]);
+
+  useEffect(() => {
+    const calculateLiveData = () => {
+        const approvedPartners = getPartners().filter(p => p.approved);
+        const data = approvedPartners.map(partner => {
+            const todaysAttendance = getTodaysAttendance(partner.id)
+                .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+            
+            const firstCheckInRecord = todaysAttendance[0] ?? null;
+            const lastRecord = todaysAttendance[todaysAttendance.length - 1] ?? null;
+
+            const status = lastRecord && !lastRecord.checkOut ? 'In' : 'Out';
+            const checkInTime = firstCheckInRecord ? formatTime(firstCheckInRecord.checkIn) : 'N/A';
+            
+            const punctuality = getAttendanceStatus(todaysAttendance, partner.shiftStartTime);
+
+            const { penalty } = calculateLatePenalty(todaysAttendance, partner.shiftStartTime || '09:00');
+            const { incentive } = calculateOvertimeIncentive(todaysAttendance, partner.shiftEndTime || '17:00');
+
+            const dailySalary = (partner.baseSalary ?? 0) / 30;
+            const netPay = (todaysAttendance.length === 0) ? 0 : dailySalary - penalty + incentive;
+            
+            return {
+                id: partner.id,
+                username: partner.username,
+                status,
+                checkInTime,
+                punctuality,
+                deductions: penalty,
+                incentives: incentive,
+                netPay: netPay,
+            };
+        });
+        setLiveData(data);
+    };
+
+    calculateLiveData();
+    const intervalId = setInterval(calculateLiveData, 5000); 
+
+    return () => clearInterval(intervalId);
+  }, [getPartners, getTodaysAttendance]);
 
   const handleApprove = (partnerId: string) => {
     const baseSalary = parseFloat(salary);
@@ -210,6 +265,55 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Eye /> Live Partner Monitoring</CardTitle>
+          <CardDescription>Real-time status of all active partners.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Partner</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Check-in</TableHead>
+                <TableHead>Punctuality</TableHead>
+                <TableHead>Deductions</TableHead>
+                <TableHead>Incentives</TableHead>
+                <TableHead className="text-right">Today's Net Pay</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {liveData.length > 0 ? (
+                liveData.map(partner => (
+                  <TableRow key={partner.id}>
+                    <TableCell className="font-medium">{partner.username}</TableCell>
+                    <TableCell>
+                      <Badge variant={partner.status === 'In' ? 'default' : 'secondary'}>
+                        {partner.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{partner.checkInTime}</TableCell>
+                    <TableCell>
+                      <StatusIndicator status={partner.punctuality} />
+                    </TableCell>
+                    <TableCell className="text-red-600">{formatCurrency(partner.deductions)}</TableCell>
+                    <TableCell className="text-green-600">{formatCurrency(partner.incentives)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(partner.netPay)}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    No approved partners to monitor.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
        {editingPartner && (
         <AlertDialog open={!!editingPartner} onOpenChange={(isOpen) => !isOpen && setEditingPartner(null)}>
