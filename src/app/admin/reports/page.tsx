@@ -2,15 +2,23 @@
 
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Partner, AttendanceRecord } from '@/lib/types';
-import { calculateLatePenalty, calculateOvertimeIncentive, calculateTotalActiveTime } from '@/lib/calculations';
-import { formatCurrency, calculateDuration, formatDate } from '@/lib/utils';
+import { 
+  calculateLatePenalty, 
+  calculateOvertimeIncentive, 
+  calculateTotalActiveTime,
+  calculateLiveOvertimeIncentive,
+  calculateTotalActiveTimeForLiveReport,
+  getAttendanceStatus
+} from '@/lib/calculations';
+import { formatCurrency, calculateDuration, formatDate, formatTime } from '@/lib/utils';
 import { exportToCsv } from '@/lib/csv';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Wifi } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
 import { addDays, format } from 'date-fns';
 
@@ -25,7 +33,8 @@ type ReportRow = {
 };
 
 export default function AdminReportsPage() {
-  const { getPartners, getPartnerAttendance } = useAuth();
+  const { getPartners, getPartnerAttendance, getTodaysAttendance } = useAuth();
+  const { toast } = useToast();
   const [filter, setFilter] = useState('daily');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
@@ -92,6 +101,57 @@ export default function AdminReportsPage() {
     if (value === 'yearly') setDateRange({ from: new Date(today.getFullYear(), 0, 1), to: new Date(today.getFullYear(), 11, 31) });
   };
   
+  const handleExportLiveStatus = () => {
+    const liveReportData: any[] = [];
+    const approvedPartners = getPartners().filter(p => p.approved);
+
+    approvedPartners.forEach(partner => {
+        const todaysAttendance = getTodaysAttendance(partner.id);
+        
+        if (todaysAttendance.length > 0) {
+            const lastRecord = [...todaysAttendance].sort((a, b) => new Date(b.checkIn).getTime() - new Date(a.checkIn).getTime())[0];
+            
+            if (lastRecord && !lastRecord.checkOut) {
+                const firstCheckIn = [...todaysAttendance].sort((a,b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())[0];
+                const { penalty } = calculateLatePenalty(todaysAttendance, partner.shiftStartTime || '09:00');
+                const { incentive } = calculateLiveOvertimeIncentive(todaysAttendance, partner.shiftEndTime || '17:00');
+                const totalMs = calculateTotalActiveTimeForLiveReport(todaysAttendance);
+                
+                const dailySalary = (partner.baseSalary ?? 0) / 30;
+                const netPayable = dailySalary - penalty + incentive;
+                const punctualityStatus = getAttendanceStatus(todaysAttendance, partner.shiftStartTime);
+                const statusText = {
+                    green: 'On Time',
+                    yellow: 'Late',
+                    red: 'Very Late',
+                    gray: 'N/A'
+                };
+
+                liveReportData.push({
+                    "Partner Name": partner.username,
+                    "Status": "Checked-In",
+                    "Check-in Time": formatTime(firstCheckIn.checkIn),
+                    "Punctuality": statusText[punctualityStatus],
+                    "Current Duration": calculateDuration(new Date(0).toISOString(), new Date(totalMs).toISOString()),
+                    "Fine": formatCurrency(penalty),
+                    "Live Incentive": formatCurrency(incentive),
+                    "Current Net Payable": formatCurrency(netPayable),
+                });
+            }
+        }
+    });
+
+    if (liveReportData.length === 0) {
+        toast({
+            title: "No Live Data",
+            description: "No partners are currently checked in.",
+        });
+        return;
+    }
+
+    exportToCsv(`Prayas_Live_Status_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}`, liveReportData);
+  };
+  
   return (
     <div className="container mx-auto p-4 md:p-8">
       <Card>
@@ -112,6 +172,9 @@ export default function AdminReportsPage() {
                         <SelectItem value="yearly">Yearly</SelectItem>
                     </SelectContent>
                 </Select>
+                 <Button onClick={handleExportLiveStatus} variant="outline">
+                  <Wifi className="mr-2 h-4 w-4" /> Export Live Status
+                </Button>
                  <Button onClick={() => exportToCsv(`Prayas_Report_${format(new Date(), 'yyyy-MM-dd')}`, reportData)} variant="outline">
                   <Download className="mr-2 h-4 w-4" /> Export to CSV
                 </Button>

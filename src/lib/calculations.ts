@@ -97,3 +97,57 @@ export function getAttendanceStatus(dailyAttendance: AttendanceRecord[], shiftSt
 
     return 'gray';
 }
+
+/**
+ * Calculates total active time for a live report, including ongoing sessions.
+ */
+export function calculateTotalActiveTimeForLiveReport(attendanceRecords: AttendanceRecord[]): number {
+    return attendanceRecords.reduce((total, record) => {
+        const start = new Date(record.checkIn).getTime();
+        // If checkOut exists, use it. Otherwise, use current time for live calculation.
+        const end = record.checkOut ? new Date(record.checkOut).getTime() : new Date().getTime();
+        return total + (end - start);
+    }, 0);
+}
+
+/**
+ * Calculates overtime incentive for a live report, considering the current time if a session is ongoing.
+ */
+export function calculateLiveOvertimeIncentive(dailyAttendance: AttendanceRecord[], shiftEndTimeString: string): { incentive: number; overtimeMinutes: number } {
+    if (dailyAttendance.length === 0 || !shiftEndTimeString) {
+        return { incentive: 0, overtimeMinutes: 0 };
+    }
+
+    // Find the latest record to see if user is currently checked in
+    const sortedRecords = [...dailyAttendance].sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime());
+    const lastRecord = sortedRecords[sortedRecords.length - 1];
+
+    // The effective "end of work" time is the last checkout, or now if still clocked in.
+    let effectiveEndTime: Date;
+
+    if (lastRecord && !lastRecord.checkOut) {
+        // Still checked in, use current time
+        effectiveEndTime = new Date();
+    } else {
+        // Find the latest checkout time among all records for the day
+        const latestCheckOutTime = Math.max(...dailyAttendance.filter(r => r.checkOut).map(r => new Date(r.checkOut!).getTime()));
+        if (latestCheckOutTime === -Infinity) {
+            return { incentive: 0, overtimeMinutes: 0 }; // No completed checkouts today
+        }
+        effectiveEndTime = new Date(latestCheckOutTime);
+    }
+    
+    const shiftEndTime = new Date(effectiveEndTime);
+    const [hours, minutes] = shiftEndTimeString.split(':').map(Number);
+    shiftEndTime.setHours(hours, minutes, 0, 0);
+
+    const overtimeMilliseconds = effectiveEndTime.getTime() - shiftEndTime.getTime();
+    const overtimeMinutes = Math.floor(overtimeMilliseconds / 60000);
+
+    if (overtimeMinutes > 0) {
+        const incentive = overtimeMinutes * OVERTIME_INCENTIVE_PER_MINUTE;
+        return { incentive, overtimeMinutes };
+    }
+
+    return { incentive: 0, overtimeMinutes: 0 };
+}
