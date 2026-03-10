@@ -26,6 +26,7 @@ export interface Partner extends User {
   role: 'partner';
   adminReferralCode: string;
   walletBalance?: number;
+  lastWalletReset?: string;
 }
 
 export type AttendanceRecord = {

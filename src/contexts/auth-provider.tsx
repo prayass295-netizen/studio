@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, ReactNode, useCallback, useMemo } from 'react';
+import { createContext, ReactNode, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import type { Admin, Partner, User, AttendanceRecord, AdminSettings, Task, TaskStatus } from '@/lib/types';
@@ -22,7 +22,7 @@ interface AuthContextType {
   updateAttendanceRecord: (recordId: string) => AttendanceRecord | null;
   getTodaysAttendance: (userId: string) => AttendanceRecord[];
   adminReferralCode: string | null;
-  updateUserProfile: (userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => void;
+  updateUserProfile: (userId: string, data: { photoUrl?: string | null; phoneNumber?: string; walletBalance?: number; lastWalletReset?: string; }) => void;
   getAdminForPartner: (partner: Partner) => Admin | null;
   getPartnerCountForAdmin: (admin: Admin) => number;
   hasAdminAccount: boolean;
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUsers = (prevUsers ?? []).map(u => {
         if (u.id === partnerId) {
           success = true;
-          return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime, destination, walletBalance: 0 };
+          return { ...u, approved: true, baseSalary, shiftStartTime, shiftEndTime, destination, walletBalance: 0, lastWalletReset: new Date().toISOString() };
         }
         return u;
       });
@@ -183,11 +183,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [attendance]);
 
-  const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => {
+  const updateUserProfile = useCallback((userId: string, data: { photoUrl?: string | null; phoneNumber?: string; walletBalance?: number; lastWalletReset?: string; }) => {
     const processUpdate = (user: User) => {
-        const updatedUser = { ...user, ...data };
+        const updatedUser: User = { ...user, ...data };
         if (data.photoUrl === null) {
-            delete updatedUser.photoUrl;
+            delete (updatedUser as Partial<User>).photoUrl;
         }
         return updatedUser;
     };
@@ -198,7 +198,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(prev => prev ? processUpdate(prev) : null);
     }
     
-    toast({ title: 'Profile Saved', description: 'Your photo and details are now saved on this device.' });
+    // Only show toast for explicit profile saves, not automated wallet resets
+    if (data.phoneNumber || data.photoUrl !== undefined) {
+      toast({ title: 'Profile Saved', description: 'Your details are now saved on this device.' });
+    }
   }, [setUsers, currentUser, setCurrentUser, toast]);
 
   const getAdminForPartner = useCallback((partner: Partner): Admin | null => {
@@ -278,6 +281,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [tasks]);
 
   const getAllTasks = useCallback(() => (tasks ?? []).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [tasks]);
+
+  useEffect(() => {
+    if (currentUser?.role === 'partner') {
+      const now = new Date();
+      const partner = currentUser as Partner;
+      const lastReset = partner.lastWalletReset ? new Date(partner.lastWalletReset) : null;
+
+      const needsReset = !lastReset ||
+        now.getFullYear() > lastReset.getFullYear() ||
+        (now.getFullYear() === lastReset.getFullYear() && now.getMonth() > lastReset.getMonth());
+
+      if (needsReset) {
+        if ((partner.walletBalance ?? 0) > 0) {
+            // Reset balance and notify user
+            updateUserProfile(currentUser.id, {
+                walletBalance: 0,
+                lastWalletReset: now.toISOString()
+            });
+            toast({
+                title: "Wallet Reset",
+                description: "Your previous month's balance has been processed and your wallet is now reset for the new month."
+            });
+        } else if (!lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+            // Silently update the reset date if there's no balance to avoid unnecessary notifications.
+             updateUserProfile(currentUser.id, {
+                lastWalletReset: now.toISOString()
+            });
+        }
+      }
+    }
+  }, [currentUser, updateUserProfile, toast]);
 
   const value = {
     currentUser,
