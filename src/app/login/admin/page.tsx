@@ -87,28 +87,49 @@ export default function AdminAuthPage() {
       return;
     }
 
+    // Modern browsers with secure context
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(() => {
-        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
-      }).catch(err => {
-        toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy the code.' });
-        console.error('Could not copy text: ', err);
-      });
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+        })
+        .catch(err => {
+          console.error('Async clipboard copy failed: ', err);
+          toast({ variant: 'destructive', title: 'Copy Failed', description: 'Could not copy the code.' });
+        });
     } else {
+      // Fallback for older browsers or insecure contexts
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      // Make it non-visible
+      textArea.style.position = 'fixed';
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.width = '1px';
+      textArea.style.height = '1px';
+      textArea.style.padding = 0;
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      let success = false;
       try {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+        success = document.execCommand('copy');
       } catch (err) {
+        console.error('Fallback execCommand copy failed: ', err);
+      }
+
+      document.body.removeChild(textArea);
+
+      if (success) {
+        toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
+      } else {
         toast({ variant: 'destructive', title: 'Copy Failed', description: 'Your browser does not support copying.' });
-        console.error('Fallback copy failed: ', err);
       }
     }
   };
