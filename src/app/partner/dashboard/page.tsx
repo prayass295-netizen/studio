@@ -7,15 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusIndicator } from '@/components/status-indicator';
 import type { AttendanceRecord, Partner } from '@/lib/types';
-import { calculateTotalActiveTime, getAttendanceStatus } from '@/lib/calculations';
-import { formatTime, formatDate, calculateDuration } from '@/lib/utils';
-import { Clock, Sun, Moon, CalendarDays, Timer } from 'lucide-react';
+import { 
+  getAttendanceStatus, 
+  calculateTotalActiveTimeForLiveReport,
+  calculateLatePenalty,
+  calculateLiveOvertimeIncentive
+} from '@/lib/calculations';
+import { formatTime, formatDate, calculateDuration, formatCurrency } from '@/lib/utils';
+import { Clock, Sun, Moon, CalendarDays, Timer, TrendingDown, TrendingUp, CircleDollarSign } from 'lucide-react';
 
 export default function PartnerDashboard() {
   const { currentUser, getTodaysAttendance, addAttendanceRecord, updateAttendanceRecord, getPartnerAttendance } = useAuth();
   const [todaysRecords, setTodaysRecords] = useState<AttendanceRecord[]>([]);
   const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
-  const [totalTime, setTotalTime] = useState(0);
+  const [liveMetrics, setLiveMetrics] = useState({
+    totalTime: 0,
+    fine: 0,
+    incentive: 0,
+    netPay: 0,
+  });
 
   const partner = currentUser as Partner;
 
@@ -29,13 +39,24 @@ export default function PartnerDashboard() {
 
   useEffect(() => {
      if (currentUser) {
-      const interval = setInterval(() => {
-        // Recalculate based on potentially new records if user checked in/out
-        setTotalTime(calculateTotalActiveTime(getTodaysAttendance(currentUser.id)));
-      }, 1000);
+      const calculateMetrics = () => {
+        const currentRecords = getTodaysAttendance(currentUser.id);
+        const totalTime = calculateTotalActiveTimeForLiveReport(currentRecords);
+        const { penalty } = calculateLatePenalty(currentRecords, partner.shiftStartTime || '09:00');
+        const { incentive } = calculateLiveOvertimeIncentive(currentRecords, partner.shiftEndTime || '17:00');
+        const dailySalary = (partner.baseSalary ?? 0) / 30;
+        
+        const netPay = currentRecords.length > 0 ? dailySalary - penalty + incentive : 0;
+        
+        setLiveMetrics({ totalTime, fine: penalty, incentive, netPay });
+      };
+
+      calculateMetrics();
+      const interval = setInterval(calculateMetrics, 1000);
+
       return () => clearInterval(interval);
     }
-  }, [currentUser, getTodaysAttendance]);
+  }, [currentUser, getTodaysAttendance, partner]);
 
   const lastRecord = useMemo(() => {
     // We need to get the latest records from state as it's more up-to-date
@@ -66,6 +87,12 @@ export default function PartnerDashboard() {
   };
 
   const status = getAttendanceStatus(todaysRecords, partner?.shiftStartTime);
+  
+  const firstCheckInTime = useMemo(() => {
+      if (todaysRecords.length === 0) return 'N/A';
+      const firstRecord = [...todaysRecords].sort((a,b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())[0];
+      return formatTime(firstRecord.checkIn);
+  }, [todaysRecords]);
 
   return (
     <div className="container mx-auto p-4 md:p-8">
@@ -120,12 +147,16 @@ export default function PartnerDashboard() {
         <div className="space-y-8">
           <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Timer />Today's Status</CardTitle>
+                <CardTitle className="flex items-center gap-2"><Timer />Live Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Assigned Shift</span>
                      <span className="font-semibold">{partner.shiftStartTime && partner.shiftEndTime ? `${partner.shiftStartTime} - ${partner.shiftEndTime}` : 'Not Set'}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Check-in Time</span>
+                    <span className="font-semibold">{firstCheckInTime}</span>
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Punctuality</span>
@@ -134,8 +165,21 @@ export default function PartnerDashboard() {
                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Total Active Time</span>
                     <span className="font-semibold text-lg">
-                        {Math.floor(totalTime / 3600000)}h {Math.floor((totalTime % 3600000) / 60000)}m
+                        {Math.floor(liveMetrics.totalTime / 3600000)}h {Math.floor((liveMetrics.totalTime % 3600000) / 60000)}m
                     </span>
+                </div>
+                <hr className="my-2" />
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingDown className="h-4 w-4 text-red-600"/>Current Deduction</span>
+                    <span className="font-semibold text-red-600">{formatCurrency(liveMetrics.fine)}</span>
+                </div>
+                 <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-green-600"/>Current Incentive</span>
+                    <span className="font-semibold text-green-600">{formatCurrency(liveMetrics.incentive)}</span>
+                </div>
+                <div className="flex justify-between items-center text-lg mt-2">
+                    <span className="font-semibold flex items-center gap-2"><CircleDollarSign className="h-5 w-5 text-primary"/>Live Net Earning</span>
+                    <span className="font-bold text-primary">{formatCurrency(liveMetrics.netPay)}</span>
                 </div>
             </CardContent>
           </Card>

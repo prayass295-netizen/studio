@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export function Header() {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, adminReferralCode } = useAuth();
   const pathname = usePathname();
 
   const navLinks =
@@ -32,7 +32,7 @@ export function Header() {
             <span className="font-bold">Prayas</span>
           </Link>
         </div>
-        <nav className="flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -47,6 +47,12 @@ export function Header() {
           ))}
         </nav>
         <div className="flex flex-1 items-center justify-end space-x-4">
+           {currentUser?.role === 'admin' && adminReferralCode && (
+            <div className="hidden lg:flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">
+              <span className="text-sm font-medium text-muted-foreground">Your Team Code:</span>
+              <span className="text-sm font-bold tracking-wider text-primary">{adminReferralCode}</span>
+            </div>
+          )}
           <span className="text-sm text-muted-foreground hidden sm:inline">
             Welcome, <span className="font-semibold text-foreground">{currentUser?.username}</span>
           </span>
