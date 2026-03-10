@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -31,10 +31,17 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AdminAuthPage() {
-  const { login, registerAdmin, adminReferralCode } = useAuth();
+  const { login, registerAdmin, hasAdminAccount } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
+  
+  const hasAdmin = hasAdminAccount;
+  const [activeTab, setActiveTab] = useState(hasAdmin ? 'login' : 'register');
+
+  useEffect(() => {
+    setActiveTab(hasAdmin ? 'login' : 'register');
+  }, [hasAdmin]);
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -68,12 +75,10 @@ export default function AdminAuthPage() {
     navigator.clipboard.writeText(text);
     toast({ title: 'Copied!', description: 'Referral code copied to clipboard.' });
   };
-  
-  const hasAdmin = !!adminReferralCode;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Tabs defaultValue={hasAdmin ? 'login' : 'register'} className="w-full max-w-md">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-md">
         <div className="flex justify-center mb-6">
           <Link href="/" className="flex items-center gap-2">
             <PrayasLogo className="h-8 w-8 text-primary" />
@@ -131,7 +136,7 @@ export default function AdminAuthPage() {
                     </div>
                     <p className="text-muted-foreground text-sm">Partners will use this code to register. Keep it safe.</p>
                 </div>
-                 <Button onClick={() => router.push('/login/admin')} className="w-full mt-6">
+                 <Button onClick={() => setActiveTab('login')} className="w-full mt-6">
                     Proceed to Login
                 </Button>
               </CardContent>

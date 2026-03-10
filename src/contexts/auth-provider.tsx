@@ -25,6 +25,7 @@ interface AuthContextType {
   updateUserProfile: (userId: string, data: { photoUrl?: string | null; phoneNumber?: string }) => void;
   getAdminForPartner: (partner: Partner) => Admin | null;
   getPartnerCountForAdmin: (admin: Admin) => number;
+  hasAdminAccount: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,8 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { toast } = useToast();
 
+  const hasAdminAccount = users.some(u => u.role === 'admin');
+
   const registerAdmin = useCallback((username: string, password: string): Admin | null => {
-    if (users.find(u => u.role === 'admin')) {
+    if (users.some(u => u.role === 'admin')) {
       toast({ variant: 'destructive', title: 'Error', description: 'An admin already exists.' });
       return null;
     }
@@ -214,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUserProfile,
     getAdminForPartner,
     getPartnerCountForAdmin,
+    hasAdminAccount,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
